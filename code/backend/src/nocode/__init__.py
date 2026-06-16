@@ -1,8 +1,11 @@
 from .config_engine import ConfigurationEngine
-from .dashboard_builder import DashboardBuilder
-from .form_builder import FormBuilder
 from .rule_engine import RuleEngine
 from .workflow_builder import WorkflowBuilder
+
+# NOTE: DashboardBuilder (dashboard_builder.py) and FormBuilder (form_builder.py)
+# are referenced in the original design but were never implemented. They are
+# intentionally not exported here to keep this package importable. Re-add them to
+# the imports and __all__ once the corresponding modules exist.
 
 """
 No-Code/Low-Code Configuration Module
@@ -17,6 +20,4 @@ __all__ = [
     "ConfigurationEngine",
     "WorkflowBuilder",
     "RuleEngine",
-    "FormBuilder",
-    "DashboardBuilder",
 ]

@@ -10,13 +10,11 @@ from src.models.card import Card, CardStatus, CardType
 from src.models.database import db
 from src.models.user import User
 from src.security.audit_logger import AuditLogger
-from src.security.encryption import PINManager
 from src.security.input_validator import InputValidator
-from src.utils.luhn import is_valid_luhn
+from src.utils.luhn import validate_luhn
 
 logger = logging.getLogger(__name__)
 audit_logger = AuditLogger()
-pin_manager = PINManager()
 input_validator = InputValidator()
 
 
@@ -124,7 +122,7 @@ class CardService:
                 )
             card_number = self._generate_card_number(card_type)
             cvv = self._generate_cvv()
-            if not is_valid_luhn(card_number):
+            if not validate_luhn(card_number):
                 raise CardServiceError(
                     "Generated card number failed Luhn check", "LUHN_CHECK_FAILED"
                 )

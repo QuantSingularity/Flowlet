@@ -5,6 +5,7 @@ Provides centralized error handling for common HTTP errors and exceptions
 
 from datetime import datetime, timezone
 
+import flask
 from flask import jsonify
 from werkzeug.exceptions import HTTPException
 

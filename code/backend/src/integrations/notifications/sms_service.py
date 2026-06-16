@@ -35,37 +35,6 @@ class SMSService:
         self.account_sid = self.config.get("TWILIO_ACCOUNT_SID")
         self.auth_token = self.config.get("TWILIO_AUTH_TOKEN")
 
-    def send_sms(self, message: SMSMessage) -> bool:
-        """
-        Send an SMS message
-
-        Args:
-            message: SMSMessage object with SMS details
-
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        if not self.enabled:
-            logger.info(
-                f"SMS service disabled. Would send: {message.body} to {message.to}"
-            )
-            return True
-
-        try:
-            if self.provider == "console":
-                # Console provider for development/testing
-                logger.info(f"SMS to {message.to}: {message.body}")
-                return True
-            elif self.provider == "twilio":
-                return self._send_twilio(message)
-            else:
-                logger.warning(f"Unknown SMS provider: {self.provider}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Failed to send SMS: {str(e)}")
-            return False
-
     def _send_twilio(self, message: SMSMessage) -> bool:
         """Send SMS via Twilio"""
         try:

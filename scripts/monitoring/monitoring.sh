@@ -17,6 +17,7 @@ NC='\033[0m' # No Color
 # Default values
 APP_NAMESPACE="flowlet"
 MONITORING_NAMESPACE="monitoring"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HELM_PROMETHEUS_REPO="prometheus-community"
 HELM_GRAFANA_REPO="grafana"
 
@@ -87,9 +88,14 @@ setup_monitoring() {
     kubectl apply -f https://github.com/jaegertracing/jaeger-operator/releases/download/v1.35.0/jaeger-operator.yaml || log_error "Jaeger operator installation failed."
     kubectl wait --for=condition=available deployment/jaeger-operator -n observability --timeout=300s || log_error "Jaeger operator failed to become available."
 
-    # 5. Apply custom dashboards
-    echo -e "${YELLOW}Applying custom dashboards...${NC}"
-    kubectl apply -f ../../kubernetes/monitoring/dashboards/ -n "${MONITORING_NAMESPACE}" || log_error "Applying custom dashboards failed."
+    # 5. Apply custom dashboards (only if the directory exists in this repository)
+    DASHBOARDS_DIR="$PROJECT_ROOT/infrastructure/kubernetes/monitoring/dashboards"
+    if [ -d "$DASHBOARDS_DIR" ]; then
+        echo -e "${YELLOW}Applying custom dashboards...${NC}"
+        kubectl apply -f "$DASHBOARDS_DIR/" -n "${MONITORING_NAMESPACE}" || log_error "Applying custom dashboards failed."
+    else
+        echo -e "${YELLOW}No custom dashboards directory at ${DASHBOARDS_DIR}; skipping.${NC}"
+    fi
 
     echo -e "${GREEN}=========================================="
     echo -e "Monitoring setup complete!"

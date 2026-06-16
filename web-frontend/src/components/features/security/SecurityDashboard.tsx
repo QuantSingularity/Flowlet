@@ -1503,9 +1503,11 @@ export function SecurityDashboard({
               <div className="flex space-x-2">
                 {state.selectedEvent.status === "new" && (
                   <Button
-                    onClick={() =>
-                      handleEventInvestigate(state.selectedEvent?.id)
-                    }
+                    onClick={() => {
+                      if (state.selectedEvent) {
+                        handleEventInvestigate(state.selectedEvent.id);
+                      }
+                    }}
                     disabled={state.isRefreshing}
                     size="sm"
                   >

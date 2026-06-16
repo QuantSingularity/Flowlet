@@ -3,6 +3,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
+import flask
 from flask import Blueprint, g, jsonify, request
 
 try:

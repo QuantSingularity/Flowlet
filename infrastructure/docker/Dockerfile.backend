@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
+COPY code/backend/requirements.txt .
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir --prefix=/install -r requirements.txt
@@ -24,8 +24,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /install /usr/local
 
-COPY backend/src ./src
-COPY backend/requirements.txt .
+COPY code/backend/src ./src
+COPY code/backend/app.py .
+COPY code/backend/run_server.py .
+COPY code/backend/requirements.txt .
+COPY code/ml_services ./ml_services
 
 RUN chown -R flowlet:flowlet /app
 
@@ -36,4 +39,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["gunicorn", "run_server:app", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120"]

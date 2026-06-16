@@ -18,7 +18,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BACKEND_SRC="$PROJECT_ROOT/backend/src"
+BACKEND_SRC="$PROJECT_ROOT/code/backend/src"
 FRONTEND_SRC="$PROJECT_ROOT/web-frontend/src" # Corrected path based on repository structure
 
 # --- Helper Functions ---

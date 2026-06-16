@@ -229,7 +229,7 @@ const SettingsScreen: React.FC = () => {
                   </div>
                   <Switch
                     checked={notifications[key]}
-                    onCheckedChange={(checked) =>
+                    onCheckedChange={(checked: boolean) =>
                       setNotifications((prev) => ({ ...prev, [key]: checked }))
                     }
                   />
@@ -292,7 +292,7 @@ const SettingsScreen: React.FC = () => {
                     </div>
                     <Switch
                       checked={privacy[key]}
-                      onCheckedChange={(checked) =>
+                      onCheckedChange={(checked: boolean) =>
                         setPrivacy((prev) => ({ ...prev, [key]: checked }))
                       }
                     />

@@ -97,8 +97,11 @@ export interface RegisterData {
   firstName: string;
   lastName: string;
   phoneNumber?: string;
-  acceptTerms: boolean;
-  acceptPrivacy: boolean;
+  // NOTE: the registration form does not currently collect consent. These are
+  // optional until a terms/privacy checkbox is added to RegisterScreen. See
+  // FIXES.md (frontend) for the flagged product gap.
+  acceptTerms?: boolean;
+  acceptPrivacy?: boolean;
 }
 
 export interface MFASetupData {
@@ -583,6 +586,23 @@ export interface AnalyticsData {
 
 // ============================================================================
 // Notification (used by store/uiSlice)
+// ============================================================================
+export type NotificationType =
+  | "transaction"
+  | "security"
+  | "alert"
+  | "info"
+  | "promotion";
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  read: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // ============================================================================
 // PaginatedResponse (alias used by store/api and walletService)

@@ -769,7 +769,7 @@ const NodeConfiguration: React.FC<{
               <Label>Risk Threshold</Label>
               <Slider
                 value={[config.riskThreshold || 50]}
-                onValueChange={([value]) =>
+                onValueChange={([value]: number[]) =>
                   onUpdate({ ...config, riskThreshold: value })
                 }
                 max={100}
@@ -783,7 +783,7 @@ const NodeConfiguration: React.FC<{
             <div className="flex items-center space-x-2">
               <Switch
                 checked={config.blockSuspicious || false}
-                onCheckedChange={(checked) =>
+                onCheckedChange={(checked: boolean) =>
                   onUpdate({ ...config, blockSuspicious: checked })
                 }
               />

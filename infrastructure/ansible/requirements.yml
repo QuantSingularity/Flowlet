@@ -1,0 +1,14 @@
+---
+# Ansible collection dependencies for the Flowlet playbooks.
+#
+# The playbooks use modules that are not part of ansible-core:
+#   - community.general.modprobe (playbooks/k8s-setup.yml)
+#   - ansible.posix.sysctl       (playbooks/k8s-setup.yml)
+#
+# Install them before running the playbooks:
+#   ansible-galaxy collection install -r requirements.yml
+collections:
+  - name: community.general
+    version: ">=8.0.0"
+  - name: ansible.posix
+    version: ">=1.5.0"

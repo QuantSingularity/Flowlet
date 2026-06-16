@@ -17,7 +17,7 @@
       tags: [kubernetes]
 
     - name: Load kernel modules
-      ansible.builtin.modprobe:
+      community.general.modprobe:
         name: "{{ item }}"
         state: present
       loop:

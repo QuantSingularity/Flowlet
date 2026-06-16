@@ -71,7 +71,7 @@ const navigation: NavGroup[] = [
     items: [
       { icon: GitBranch, label: "Workflows", path: "/workflows" },
       { icon: Shield, label: "Security", path: "/security" },
-      { icon: MessageSquare, label: "Compliance", path: "/security" },
+      { icon: MessageSquare, label: "Compliance", path: "/compliance" },
     ],
   },
   {

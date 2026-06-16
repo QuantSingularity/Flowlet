@@ -1,4 +1,4 @@
-// Wallet service — wraps /api/v1/accounts/*, /api/v1/cards/*, /api/v1/analytics/*
+// Wallet service — wraps /api/v1/accounts/*, /api/v1/card/*, /api/v1/analytics/*
 import { apiFetch, TokenManager } from "./client";
 
 // ---------------------------------------------------------------------------
@@ -355,7 +355,7 @@ export const walletService = {
   async getCards(): Promise<Card[]> {
     if (isDemoMode()) return DEMO_CARDS;
     try {
-      const data = await apiFetch<{ cards: Card[] }>("/cards/");
+      const data = await apiFetch<{ cards: Card[] }>("/card/");
       return data.cards ?? [];
     } catch {
       return DEMO_CARDS;
@@ -363,7 +363,7 @@ export const walletService = {
   },
 
   async getCard(cardId: string): Promise<Card> {
-    return apiFetch<Card>(`/cards/${cardId}`);
+    return apiFetch<Card>(`/card/${cardId}`);
   },
 
   async issueCard(body: {
@@ -372,14 +372,14 @@ export const walletService = {
     daily_limit?: number;
     monthly_limit?: number;
   }): Promise<Card> {
-    return apiFetch<Card>("/cards/issue", {
+    return apiFetch<Card>("/card/issue", {
       method: "POST",
       body: JSON.stringify(body),
     });
   },
 
   async activateCard(cardId: string, _activationCode: string): Promise<void> {
-    await apiFetch(`/cards/${cardId}/activate`, { method: "POST" });
+    await apiFetch(`/card/${cardId}/activate`, { method: "POST" });
   },
 
   async toggleCardStatus(
@@ -387,7 +387,7 @@ export const walletService = {
     action: "block" | "unblock",
   ): Promise<void> {
     const endpoint = action === "block" ? "freeze" : "unfreeze";
-    await apiFetch(`/cards/${cardId}/${endpoint}`, { method: "POST" });
+    await apiFetch(`/card/${cardId}/${endpoint}`, { method: "POST" });
   },
 
   // ----- Dashboard & Analytics ----------------------------------------------
@@ -412,7 +412,19 @@ export const walletService = {
     // Aggregate from accounts + cards endpoints when a dedicated summary
     // endpoint is not available
     try {
-      return await apiFetch<DashboardSummary>("/analytics/summary");
+      const dash = await apiFetch<{
+        summary?: Record<string, number>;
+        recent_transactions?: Transaction[];
+      }>("/analytics/dashboard");
+      const s = dash.summary ?? {};
+      return {
+        total_balance: s.total_balance ?? 0,
+        total_accounts: s.total_accounts ?? 0,
+        total_cards: s.total_cards ?? 0,
+        recent_transactions: dash.recent_transactions ?? [],
+        monthly_spending: s.monthly_spending ?? 0,
+        monthly_income: s.monthly_income ?? 0,
+      };
     } catch {
       // Fallback: build summary from accounts list
       try {

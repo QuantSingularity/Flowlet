@@ -10,6 +10,7 @@ try:
 except ImportError:
     pd = None
     PANDAS_AVAILABLE = False
+import flask
 from flask import Blueprint, jsonify, request
 from flask_cors import cross_origin
 from ml_services.fraud_detection import FraudDetectionError, RiskLevel

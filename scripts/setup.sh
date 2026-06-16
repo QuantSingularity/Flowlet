@@ -15,8 +15,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # --- Configuration ---
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$PROJECT_ROOT/backend"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BACKEND_DIR="$PROJECT_ROOT/code/backend"
 WEB_FRONTEND_DIR="$PROJECT_ROOT/web-frontend"
 
 # Default values
@@ -70,7 +70,6 @@ install_node_deps() {
     # Install web-frontend dependencies
     if [ -d "$WEB_FRONTEND_DIR" ]; then
         cd "$WEB_FRONTEND_DIR"
-        cd web-frontend
         if command_exists pnpm; then
             pnpm install
         elif command_exists npm; then
@@ -93,10 +92,9 @@ setup_dev_database() {
 
     # Initialize database using Python script
     python3 -c "
-from backend.app import create_app
+from run_server import app
 from src.models.database import db
 
-app = create_app('development')
 with app.app_context():
     db.create_all()
     print('Database initialized successfully')
@@ -191,8 +189,8 @@ fi
 mkdir -p logs
 
 # Start the development server
-# Using main.py which should contain the Flask app run logic
-python3 src/main.py
+# run_server.py is the canonical entry point (sets up sys.path and Flask app).
+python3 run_server.py
 EOF
     chmod +x "$BACKEND_DIR/dev.sh"
 
@@ -224,13 +222,13 @@ trap cleanup SIGINT SIGTERM
 
 # Start backend server
 echo -e "${GREEN}Starting backend server...${NC}"
-(cd backend && ./dev.sh) &
+(cd code/backend && ./dev.sh) &
 BACKEND_PID=$!
 
 # Start web-frontend server
 echo -e "${GREEN}Starting web-frontend server...${NC}"
 (cd web-frontend && (command -v pnpm >/dev/null 2>&1 && pnpm run dev --host || npm run dev -- --host)) &
-web-frontend_PID=$!
+FRONTEND_PID=$!
 
 echo -e "${GREEN}=========================================="
 echo -e "Development servers started!"
@@ -264,8 +262,8 @@ setup_production() {
     echo -e "${YELLOW}Setting up configuration secrets...${NC}"
     # Use --dry-run=client -o yaml | kubectl apply -f - for idempotent secret creation
     kubectl create secret generic flowlet-secrets \
-      --from-literal=db-password=$(openssl rand -base64 20) \
-      --from-literal=api-key=$(openssl rand -base64 32) \
+      --from-literal=db-password="$(openssl rand -base64 20)" \
+      --from-literal=api-key="$(openssl rand -base64 32)" \
       --from-literal=secret-key="${SECRET_KEY}" \
       --from-literal=jwt-secret-key="${JWT_SECRET_KEY}" \
       --namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -

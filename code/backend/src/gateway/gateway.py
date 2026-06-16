@@ -26,6 +26,7 @@ try:
 except ImportError:
     redis = None
     REDIS_AVAILABLE = False
+import flask
 from flask import g, jsonify, request
 
 

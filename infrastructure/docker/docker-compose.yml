@@ -59,12 +59,14 @@ services:
     environment:
       - DATABASE_URL=postgresql://flowlet:${POSTGRES_PASSWORD}@postgres:5432/flowlet
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env file}
+      - JWT_SECRET_KEY=${JWT_SECRET:?JWT_SECRET must be set in .env file}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env file}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set in .env file}
+      - FLASK_CONFIG=${ENVIRONMENT:-development}
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
-      - STRIPE_API_KEY=${STRIPE_API_KEY:-}
+      - STRIPE_SECRET_KEY=${STRIPE_API_KEY:-}
       - PLAID_CLIENT_ID=${PLAID_CLIENT_ID:-}
       - PLAID_SECRET=${PLAID_SECRET:-}
     ports:
@@ -90,7 +92,7 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.frontend
     container_name: flowlet-frontend
     environment:
-      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://backend:8000}
     ports:
       - "3000:3000"
     networks:

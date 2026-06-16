@@ -617,13 +617,16 @@ export function AuditTrail({
                 <div>
                   <Label className="text-sm">Start Date</Label>
                   <DatePicker
-                    selected={state.filters.dateRange.start}
-                    onChange={(date) =>
+                    date={state.filters.dateRange.start ?? undefined}
+                    onDateChange={(date) =>
                       setState((prev) => ({
                         ...prev,
                         filters: {
                           ...prev.filters,
-                          dateRange: { ...prev.filters.dateRange, start: date },
+                          dateRange: {
+                            ...prev.filters.dateRange,
+                            start: date ?? null,
+                          },
                         },
                       }))
                     }
@@ -632,13 +635,16 @@ export function AuditTrail({
                 <div>
                   <Label className="text-sm">End Date</Label>
                   <DatePicker
-                    selected={state.filters.dateRange.end}
-                    onChange={(date) =>
+                    date={state.filters.dateRange.end ?? undefined}
+                    onDateChange={(date) =>
                       setState((prev) => ({
                         ...prev,
                         filters: {
                           ...prev.filters,
-                          dateRange: { ...prev.filters.dateRange, end: date },
+                          dateRange: {
+                            ...prev.filters.dateRange,
+                            end: date ?? null,
+                          },
                         },
                       }))
                     }

@@ -99,11 +99,11 @@ const RECENT_ACTIVITY = [
 ];
 
 const scoreFromChecks = (checks: typeof SECURITY_CHECKS) => {
-  const weights = { high: 3, medium: 2 };
-  const total = checks.reduce((a, c) => a + weights[c.impact], 0);
+  const weights: Record<string, number> = { high: 3, medium: 2 };
+  const total = checks.reduce((a, c) => a + (weights[c.impact] ?? 0), 0);
   const earned = checks
     .filter((c) => c.status === "enabled")
-    .reduce((a, c) => a + weights[c.impact], 0);
+    .reduce((a, c) => a + (weights[c.impact] ?? 0), 0);
   return Math.round((earned / total) * 100);
 };
 

@@ -18,7 +18,7 @@ import {
   Search,
   Settings,
   Shield,
-  Stop,
+  StopCircle,
   Target,
   Trash2,
   Users,
@@ -1504,7 +1504,7 @@ export function ThreatDetection({
                             size="sm"
                             variant="destructive"
                           >
-                            <Stop className="w-3 h-3 mr-1" />
+                            <StopCircle className="w-3 h-3 mr-1" />
                             Stop
                           </Button>
                         )}
@@ -1655,7 +1655,7 @@ export function ThreatDetection({
                         }}
                       />
                       <span className="text-sm capitalize">
-                        {action} {state.selectedDetection.source.identifier}
+                        {action} {state.selectedDetection?.source.identifier}
                       </span>
                     </div>
                   ))}
@@ -1664,9 +1664,11 @@ export function ThreatDetection({
 
               <div className="flex space-x-2">
                 <Button
-                  onClick={() =>
-                    handleThreatResponse(state.selectedDetection?.id)
-                  }
+                  onClick={() => {
+                    if (state.selectedDetection) {
+                      handleThreatResponse(state.selectedDetection.id);
+                    }
+                  }}
                   disabled={
                     state.isResponding || state.responseActions.length === 0
                   }

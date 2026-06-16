@@ -2,6 +2,7 @@ import logging
 from functools import wraps
 from typing import Any
 
+import flask
 from flask import Blueprint, g, jsonify, request
 
 try:

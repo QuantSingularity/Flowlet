@@ -22,6 +22,7 @@ try:
 except ImportError:
     qrcode = None
     QRCODE_AVAILABLE = False
+import flask
 from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy.exc import IntegrityError
 

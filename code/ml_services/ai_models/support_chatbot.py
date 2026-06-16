@@ -9,7 +9,14 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from transformers import pipeline
+
+try:
+    from transformers import pipeline
+
+    TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    pipeline = None
+    TRANSFORMERS_AVAILABLE = False
 
 "\nAI Support Chatbot for Flowlet Developer Portal\nProvides intelligent assistance for developers integrating with the platform\n"
 logging.basicConfig(level=logging.INFO)
@@ -80,6 +87,14 @@ class FlowletAIChatbot:
 
     def _initialize_models(self) -> Any:
         """Initialize NLP models for intent classification and response generation"""
+        if not TRANSFORMERS_AVAILABLE:
+            logger.warning(
+                "transformers not installed; NLP models disabled, "
+                "falling back to TF-IDF similarity only"
+            )
+            self.intent_classifier = None
+            self.qa_model = None
+            return
         try:
             self.intent_classifier = pipeline(
                 "text-classification",

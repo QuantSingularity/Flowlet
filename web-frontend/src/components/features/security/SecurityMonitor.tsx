@@ -86,17 +86,6 @@ export function SecurityMonitor({
     "all" | "critical" | "high" | "medium" | "low"
   >("all");
 
-  // Auto-refresh functionality
-  useEffect(() => {
-    if (autoRefresh && onRefresh) {
-      const interval = setInterval(() => {
-        handleRefresh();
-      }, refreshInterval);
-
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, refreshInterval, onRefresh, handleRefresh]);
-
   const handleRefresh = useCallback(async () => {
     if (!onRefresh) return;
 
@@ -107,6 +96,17 @@ export function SecurityMonitor({
       setIsRefreshing(false);
     }
   }, [onRefresh]);
+
+  // Auto-refresh functionality
+  useEffect(() => {
+    if (autoRefresh && onRefresh) {
+      const interval = setInterval(() => {
+        handleRefresh();
+      }, refreshInterval);
+
+      return () => clearInterval(interval);
+    }
+  }, [autoRefresh, refreshInterval, onRefresh, handleRefresh]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {

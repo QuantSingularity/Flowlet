@@ -221,6 +221,83 @@ export function BiometricAuth({
     }
   }, [state.lockoutEndTime]);
 
+  const authenticateWithFingerprint =
+    useCallback(async (): Promise<BiometricAuthResult> => {
+      if ("credentials" in navigator) {
+        try {
+          const credential = await (navigator.credentials as any).get({
+            publicKey: {
+              challenge: new Uint8Array(32),
+              timeout: 60000,
+              userVerification: "required",
+              authenticatorSelection: {
+                authenticatorAttachment: "platform",
+                userVerification: "required",
+              },
+            },
+          });
+
+          return {
+            success: true,
+            type: "fingerprint",
+            credential,
+            timestamp: new Date().toISOString(),
+          };
+        } catch (_error) {
+          return {
+            success: false,
+            type: "fingerprint",
+            error: "Fingerprint authentication failed",
+            timestamp: new Date().toISOString(),
+          };
+        }
+      }
+
+      throw new Error("WebAuthn not supported");
+    }, []);
+
+  const authenticateWithFace =
+    useCallback(async (): Promise<BiometricAuthResult> => {
+      // Simulate face recognition (would integrate with actual face recognition API)
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            success: Math.random() > 0.3, // 70% success rate for demo
+            type: "face",
+            timestamp: new Date().toISOString(),
+          });
+        }, 2000);
+      });
+    }, []);
+
+  const authenticateWithVoice =
+    useCallback(async (): Promise<BiometricAuthResult> => {
+      // Simulate voice recognition (would integrate with actual voice recognition API)
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            success: Math.random() > 0.4, // 60% success rate for demo
+            type: "voice",
+            timestamp: new Date().toISOString(),
+          });
+        }, 3000);
+      });
+    }, []);
+
+  const authenticateWithIris =
+    useCallback(async (): Promise<BiometricAuthResult> => {
+      // Simulate iris scanning (would integrate with actual iris scanning API)
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            success: Math.random() > 0.2, // 80% success rate for demo
+            type: "iris",
+            timestamp: new Date().toISOString(),
+          });
+        }, 2500);
+      });
+    }, []);
+
   const handleAuthenticate = useCallback(
     async (type: string) => {
       if (state.lockoutEndTime && Date.now() < state.lockoutEndTime) {
@@ -301,80 +378,6 @@ export function BiometricAuth({
       authenticateWithVoice,
     ],
   );
-
-  const authenticateWithFingerprint =
-    async (): Promise<BiometricAuthResult> => {
-      if ("credentials" in navigator) {
-        try {
-          const credential = await (navigator.credentials as any).get({
-            publicKey: {
-              challenge: new Uint8Array(32),
-              timeout: 60000,
-              userVerification: "required",
-              authenticatorSelection: {
-                authenticatorAttachment: "platform",
-                userVerification: "required",
-              },
-            },
-          });
-
-          return {
-            success: true,
-            type: "fingerprint",
-            credential,
-            timestamp: new Date().toISOString(),
-          };
-        } catch (_error) {
-          return {
-            success: false,
-            type: "fingerprint",
-            error: "Fingerprint authentication failed",
-            timestamp: new Date().toISOString(),
-          };
-        }
-      }
-
-      throw new Error("WebAuthn not supported");
-    };
-
-  const authenticateWithFace = async (): Promise<BiometricAuthResult> => {
-    // Simulate face recognition (would integrate with actual face recognition API)
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: Math.random() > 0.3, // 70% success rate for demo
-          type: "face",
-          timestamp: new Date().toISOString(),
-        });
-      }, 2000);
-    });
-  };
-
-  const authenticateWithVoice = async (): Promise<BiometricAuthResult> => {
-    // Simulate voice recognition (would integrate with actual voice recognition API)
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: Math.random() > 0.4, // 60% success rate for demo
-          type: "voice",
-          timestamp: new Date().toISOString(),
-        });
-      }, 3000);
-    });
-  };
-
-  const authenticateWithIris = async (): Promise<BiometricAuthResult> => {
-    // Simulate iris scanning (would integrate with actual iris scanning API)
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: Math.random() > 0.2, // 80% success rate for demo
-          type: "iris",
-          timestamp: new Date().toISOString(),
-        });
-      }, 2500);
-    });
-  };
 
   const handleEnroll = useCallback(
     async (type: string) => {

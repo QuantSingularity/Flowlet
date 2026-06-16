@@ -95,7 +95,7 @@ setup_dev_local() {
     
     # 5. Start local services (Docker Compose)
     echo -e "${YELLOW}Starting local services via Docker Compose...${NC}"
-    docker-compose up -d
+    docker-compose -f infrastructure/docker/docker-compose.yml up -d
     log_success "Local services started."
     
     echo -e "${GREEN}=========================================="

@@ -137,21 +137,6 @@ class InputValidator:
                 )
         return value
 
-    def validate_email(self, email: str) -> str:
-        """Validate and normalize email address"""
-        if not email:
-            raise ValidationError(
-                "Email is required", field="email", code="EMAIL_REQUIRED"
-            )
-        email = email.strip().lower()
-        try:
-            valid = validate_email(email)
-            return valid.email
-        except EmailNotValidError as e:
-            raise ValidationError(
-                f"Invalid email format: {str(e)}", field="email", code="INVALID_EMAIL"
-            )
-
     def validate_phone(self, phone: str, country_code: str = None) -> str:
         """Validate and format phone number"""
         if not phone:
@@ -182,29 +167,6 @@ class InputValidator:
         if not self.patterns["uuid"].match(uuid_str):
             raise ValidationError("Invalid UUID format", code="INVALID_UUID")
         return uuid_str
-
-    def validate_card_number(self, card_number: str) -> str:
-        """Validate credit card number"""
-        if not card_number:
-            raise ValidationError(
-                "Card number is required",
-                field="card_number",
-                code="CARD_NUMBER_REQUIRED",
-            )
-        card_number = re.sub("[\\s-]", "", card_number)
-        if not self.patterns["card_number"].match(card_number):
-            raise ValidationError(
-                "Invalid card number format",
-                field="card_number",
-                code="INVALID_CARD_NUMBER",
-            )
-        if not self._validate_luhn(card_number):
-            raise ValidationError(
-                "Invalid card number (failed Luhn check)",
-                field="card_number",
-                code="INVALID_CARD_LUHN",
-            )
-        return card_number
 
     def _validate_luhn(self, card_number: str) -> bool:
         """Validate card number using Luhn algorithm"""
@@ -305,49 +267,6 @@ class InputValidator:
                 code="AMOUNT_TOO_HIGH",
             )
         return decimal_amount
-
-    def validate_currency_code(self, currency: str) -> str:
-        """Validate ISO 4217 currency code"""
-        if not currency:
-            raise ValidationError(
-                "Currency code is required", field="currency", code="CURRENCY_REQUIRED"
-            )
-        currency = currency.strip().upper()
-        if not self.patterns["currency_code"].match(currency):
-            raise ValidationError(
-                "Invalid currency code format",
-                field="currency",
-                code="INVALID_CURRENCY",
-            )
-        valid_currencies = {
-            "USD",
-            "EUR",
-            "GBP",
-            "JPY",
-            "AUD",
-            "CAD",
-            "CHF",
-            "CNY",
-            "SEK",
-            "NZD",
-            "MXN",
-            "SGD",
-            "HKD",
-            "NOK",
-            "TRY",
-            "ZAR",
-            "BRL",
-            "INR",
-            "KRW",
-            "PLN",
-        }
-        if currency not in valid_currencies:
-            raise ValidationError(
-                f"Unsupported currency code: {currency}",
-                field="currency",
-                code="UNSUPPORTED_CURRENCY",
-            )
-        return currency
 
     def validate_country_code(self, country: str) -> str:
         """Validate ISO 3166-1 alpha-2 country code"""

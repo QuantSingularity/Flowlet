@@ -19,7 +19,10 @@ const createTestStore = (preloadedState?: Partial<RootState>) => {
       ui: uiReducer,
       [api.reducerPath]: api.reducer,
     },
-    preloadedState,
+    // configureStore's preloadedState expects the full RootState shape. Test
+    // callers intentionally pass a partial slice, so cast to satisfy the
+    // overload; RTK merges partial preloaded state at runtime.
+    preloadedState: preloadedState as RootState | undefined,
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({
         serializableCheck: false,

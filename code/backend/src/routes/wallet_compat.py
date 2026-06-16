@@ -7,6 +7,7 @@ import logging
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+import flask
 from flask import Blueprint, g, jsonify, request
 
 from ..models.account import Account

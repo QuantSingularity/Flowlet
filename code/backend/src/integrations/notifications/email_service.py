@@ -4,10 +4,7 @@ Handles sending emails for notifications, verification, and alerts
 """
 
 import logging
-import smtplib
 from dataclasses import dataclass
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -39,57 +36,9 @@ class EmailService:
         self.use_tls = self.config.get("MAIL_USE_TLS", True)
         self.default_from = self.config.get("DEFAULT_FROM_EMAIL", "noreply@flowlet.com")
         self.enabled = self.config.get("EMAIL_ENABLED", True)
-
-    def send_email(self, message: EmailMessage) -> bool:
-        """
-        Send an email message
-
-        Args:
-            message: EmailMessage object with email details
-
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        if not self.enabled:
-            logger.info(
-                f"Email service disabled. Would send: {message.subject} to {message.to}"
-            )
-            return True
-
-        try:
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = message.subject
-            msg["From"] = message.from_email or self.default_from
-            msg["To"] = ", ".join(message.to)
-
-            if message.cc:
-                msg["Cc"] = ", ".join(message.cc)
-
-            # Attach text and HTML parts
-            if message.body:
-                text_part = MIMEText(message.body, "plain")
-                msg.attach(text_part)
-
-            if message.html_body:
-                html_part = MIMEText(message.html_body, "html")
-                msg.attach(html_part)
-
-            # Send email
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                if self.use_tls:
-                    server.starttls()
-                if self.username and self.password:
-                    server.login(self.username, self.password)
-
-                recipients = message.to + (message.cc or []) + (message.bcc or [])
-                server.sendmail(msg["From"], recipients, msg.as_string())
-
-            logger.info(f"Email sent successfully: {message.subject} to {message.to}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to send email: {str(e)}")
-            return False
+        # SendGrid provider configuration (used by the keyword-argument send path).
+        self.api_key = self.config.get("SENDGRID_API_KEY")
+        self.from_email = self.config.get("SENDGRID_FROM_EMAIL", self.default_from)
 
     def send_verification_email(self, to_email: str, verification_code: str) -> bool:
         """Send email verification code"""

@@ -4,7 +4,7 @@ import logging
 import secrets
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from io import BytesIO
 from typing import Any, Dict, List, Optional

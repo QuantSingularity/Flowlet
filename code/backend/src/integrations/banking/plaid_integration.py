@@ -133,7 +133,7 @@ class PlaidIntegration(BankingIntegrationBase):
                 error_data = await response.json()
                 raise BankingIntegrationError(f"Failed to get accounts: {error_data}")
 
-    async def get_account_balance(
+    async def get_account_balance_async(
         self, access_token: str, account_id: str
     ) -> Dict[str, float]:
         """
@@ -331,7 +331,9 @@ class PlaidIntegration(BankingIntegrationBase):
                 error_data = await response.json()
                 raise BankingIntegrationError(f"Failed to get identity: {error_data}")
 
-    async def create_link_token(self, user_id: str, products: List[str] = None) -> str:
+    async def create_link_token_async(
+        self, user_id: str, products: List[str] = None
+    ) -> str:
         """
         Create a Link token for Plaid Link initialization
         """

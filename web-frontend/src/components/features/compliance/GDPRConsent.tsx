@@ -742,7 +742,7 @@ export function GDPRConsent({
                             </Badge>
                             <Switch
                               checked={isGranted}
-                              onCheckedChange={(checked) =>
+                              onCheckedChange={(checked: boolean) =>
                                 handleConsentUpdate(category.id, checked)
                               }
                               disabled={state.isUpdating}

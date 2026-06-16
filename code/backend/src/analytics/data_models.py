@@ -2,18 +2,18 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    JSONB,
     UUID,
     Boolean,
     Column,
     DateTime,
-    Decimal,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -29,16 +29,16 @@ class TransactionAnalytics(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     # Transaction Details
-    amount = Column(Decimal(precision=20, scale=8), nullable=False)
+    amount = Column(Numeric(precision=20, scale=8), nullable=False)
     currency = Column(String(3), nullable=False)
     transaction_type = Column(String(50), nullable=False)
     payment_method = Column(String(50))
     merchant_category = Column(String(100))
 
     # Analytics Metrics
-    risk_score = Column(Decimal(precision=5, scale=4))
-    fraud_probability = Column(Decimal(precision=5, scale=4))
-    customer_lifetime_value = Column(Decimal(precision=15, scale=2))
+    risk_score = Column(Numeric(precision=5, scale=4))
+    fraud_probability = Column(Numeric(precision=5, scale=4))
+    customer_lifetime_value = Column(Numeric(precision=15, scale=2))
     transaction_velocity = Column(Integer)  # Transactions per hour
 
     # Geographic Data
@@ -57,7 +57,7 @@ class TransactionAnalytics(Base):
     # Behavioral Metrics
     is_first_transaction = Column(Boolean, default=False)
     days_since_last_transaction = Column(Integer)
-    average_transaction_amount = Column(Decimal(precision=15, scale=2))
+    average_transaction_amount = Column(Numeric(precision=15, scale=2))
 
     # Compliance Flags
     requires_reporting = Column(Boolean, default=False)
@@ -88,8 +88,8 @@ class CustomerAnalytics(Base):
 
     # Customer Metrics
     total_transactions = Column(Integer, default=0)
-    total_volume = Column(Decimal(precision=20, scale=2), default=0)
-    average_transaction_size = Column(Decimal(precision=15, scale=2), default=0)
+    total_volume = Column(Numeric(precision=20, scale=2), default=0)
+    average_transaction_size = Column(Numeric(precision=15, scale=2), default=0)
 
     # Behavioral Patterns
     preferred_payment_method = Column(String(50))
@@ -98,8 +98,8 @@ class CustomerAnalytics(Base):
     transaction_frequency = Column(String(20))  # daily, weekly, monthly
 
     # Risk Assessment
-    overall_risk_score = Column(Decimal(precision=5, scale=4))
-    kyc_completion_score = Column(Decimal(precision=3, scale=2))
+    overall_risk_score = Column(Numeric(precision=5, scale=4))
+    kyc_completion_score = Column(Numeric(precision=3, scale=2))
     account_age_days = Column(Integer)
 
     # Engagement Metrics
@@ -108,14 +108,14 @@ class CustomerAnalytics(Base):
     feature_usage = Column(JSONB)  # JSON object tracking feature usage
 
     # Financial Health
-    average_balance = Column(Decimal(precision=15, scale=2))
-    balance_volatility = Column(Decimal(precision=10, scale=4))
-    credit_utilization = Column(Decimal(precision=5, scale=4))
+    average_balance = Column(Numeric(precision=15, scale=2))
+    balance_volatility = Column(Numeric(precision=10, scale=4))
+    credit_utilization = Column(Numeric(precision=5, scale=4))
 
     # Lifecycle Stage
     lifecycle_stage = Column(String(20))  # new, active, dormant, churned
-    churn_probability = Column(Decimal(precision=5, scale=4))
-    predicted_ltv = Column(Decimal(precision=15, scale=2))
+    churn_probability = Column(Numeric(precision=5, scale=4))
+    predicted_ltv = Column(Numeric(precision=15, scale=2))
 
     # Compliance Status
     kyc_status = Column(String(20))
@@ -145,9 +145,9 @@ class BusinessMetrics(Base):
     )  # revenue, risk, compliance, operational
 
     # Metric Values
-    metric_value = Column(Decimal(precision=20, scale=8), nullable=False)
-    previous_value = Column(Decimal(precision=20, scale=8))
-    target_value = Column(Decimal(precision=20, scale=8))
+    metric_value = Column(Numeric(precision=20, scale=8), nullable=False)
+    previous_value = Column(Numeric(precision=20, scale=8))
+    target_value = Column(Numeric(precision=20, scale=8))
 
     # Temporal Context
     measurement_date = Column(DateTime, nullable=False)
@@ -158,7 +158,7 @@ class BusinessMetrics(Base):
     # Metadata
     calculation_method = Column(Text)
     data_sources = Column(JSONB)
-    confidence_level = Column(Decimal(precision=5, scale=4))
+    confidence_level = Column(Numeric(precision=5, scale=4))
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -223,15 +223,15 @@ class PerformanceMetrics(Base):
 
     # Performance Data
     response_time_ms = Column(Integer)
-    throughput_rps = Column(Decimal(precision=10, scale=2))
-    error_rate = Column(Decimal(precision=5, scale=4))
-    cpu_usage = Column(Decimal(precision=5, scale=2))
-    memory_usage = Column(Decimal(precision=10, scale=2))
+    throughput_rps = Column(Numeric(precision=10, scale=2))
+    error_rate = Column(Numeric(precision=5, scale=4))
+    cpu_usage = Column(Numeric(precision=5, scale=2))
+    memory_usage = Column(Numeric(precision=10, scale=2))
 
     # Business Impact
-    transaction_success_rate = Column(Decimal(precision=5, scale=4))
-    revenue_impact = Column(Decimal(precision=15, scale=2))
-    customer_satisfaction_score = Column(Decimal(precision=3, scale=2))
+    transaction_success_rate = Column(Numeric(precision=5, scale=4))
+    revenue_impact = Column(Numeric(precision=15, scale=2))
+    customer_satisfaction_score = Column(Numeric(precision=3, scale=2))
 
     # Temporal Data
     measurement_timestamp = Column(DateTime, nullable=False)
@@ -259,7 +259,7 @@ class AlertConfiguration(Base):
     metric_name = Column(String(100), nullable=False)
 
     # Threshold Configuration
-    threshold_value = Column(Decimal(precision=20, scale=8))
+    threshold_value = Column(Numeric(precision=20, scale=8))
     comparison_operator = Column(String(10))  # >, <, >=, <=, ==, !=
 
     # Alert Behavior

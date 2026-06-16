@@ -24,13 +24,22 @@ from sklearn.metrics import classification_report, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
+_log_handlers = [logging.StreamHandler()]
+_log_path = os.environ.get(
+    "FRAUD_DETECTION_LOG_FILE", "/var/log/flowlet/fraud_detection.log"
+)
+try:
+    os.makedirs(os.path.dirname(_log_path), exist_ok=True)
+    _log_handlers.insert(0, logging.FileHandler(_log_path))
+except OSError:
+    # Log directory is not writable (e.g. local dev, CI, containers without the
+    # mounted volume). Fall back to console-only logging instead of failing import.
+    pass
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("/var/log/flowlet/fraud_detection.log"),
-        logging.StreamHandler(),
-    ],
+    handlers=_log_handlers,
 )
 logger = logging.getLogger(__name__)
 

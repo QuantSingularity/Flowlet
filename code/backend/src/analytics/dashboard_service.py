@@ -1,6 +1,6 @@
 import logging
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List
 
@@ -11,9 +11,9 @@ from .data_models import (
     AlertConfiguration,
     CustomerAnalytics,
     PerformanceMetrics,
-    ReportingEngine,
     TransactionAnalytics,
 )
+from .reporting_engine import ReportingEngine
 
 
 class WidgetType(Enum):

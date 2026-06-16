@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum as PyEnum
 from typing import Any
 
+import flask
 from sqlalchemy import (
     Boolean,
     Column,

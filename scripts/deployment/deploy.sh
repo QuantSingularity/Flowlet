@@ -17,8 +17,9 @@ NC='\033[0m' # No Color
 # Default values
 ENV="staging"
 NAMESPACE="flowlet-staging"
-HELM_CHART_PATH="../../kubernetes/helm/flowlet-chart"
-MANIFESTS_PATH="../../kubernetes/manifests"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+HELM_CHART_PATH="$PROJECT_ROOT/infrastructure/kubernetes/helm/flowlet-chart"
+MANIFESTS_PATH="$PROJECT_ROOT/infrastructure/kubernetes/manifests"
 
 # --- Helper Functions ---
 
@@ -49,7 +50,7 @@ if ! command_exists kubectl; then
     log_error "kubectl is required but not installed. Aborting."
 fi
 if ! command_exists helm; then
-    log_error "Helm is required but not installed. Aborting."
+    echo -e "${YELLOW}Warning: Helm is not installed. The Helm step will be skipped; deployment will proceed via Kubernetes manifests only.${NC}"
 fi
 
 # Parse command line arguments
@@ -93,14 +94,18 @@ kubectl get namespace "${NAMESPACE}" > /dev/null 2>&1 || kubectl create namespac
 echo -e "${YELLOW}Applying Kubernetes manifests from ${MANIFESTS_PATH}...${NC}"
 kubectl apply -f "${MANIFESTS_PATH}" -n "${NAMESPACE}" || log_error "Failed to apply Kubernetes manifests."
 
-# 3. Deploy Helm Chart
-echo -e "${YELLOW}Deploying Helm chart from ${HELM_CHART_PATH} for environment ${ENV}...${NC}"
-helm upgrade --install flowlet "${HELM_CHART_PATH}" \
-  --namespace "${NAMESPACE}" \
-  --set environment="${ENV}" \
-  --values "${HELM_CHART_PATH}/values/${ENV}.yaml" \
-  --atomic \
-  --timeout 10m0s || log_error "Helm deployment failed."
+# 3. Deploy Helm Chart (only if the chart is present in this repository)
+if [ -d "${HELM_CHART_PATH}" ]; then
+  echo -e "${YELLOW}Deploying Helm chart from ${HELM_CHART_PATH} for environment ${ENV}...${NC}"
+  helm upgrade --install flowlet "${HELM_CHART_PATH}" \
+    --namespace "${NAMESPACE}" \
+    --set environment="${ENV}" \
+    --values "${HELM_CHART_PATH}/values/${ENV}.yaml" \
+    --atomic \
+    --timeout 10m0s || log_error "Helm deployment failed."
+else
+  echo -e "${YELLOW}No Helm chart at ${HELM_CHART_PATH}; skipping Helm step (deployed via manifests above).${NC}"
+fi
 
 # 4. Verification
 echo -e "${YELLOW}Verifying deployment status...${NC}"

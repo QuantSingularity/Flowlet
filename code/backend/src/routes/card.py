@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
+import flask
 from flask import Blueprint, g, jsonify, request
 
 from ..models.account import Account, AccountStatus

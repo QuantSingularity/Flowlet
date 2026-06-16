@@ -81,14 +81,23 @@ class AuthService {
         credentials,
         { skipAuth: true },
       );
-      const user = mapBackendUser(
-        (data.user as Record<string, unknown>) ?? data,
-      );
       const access = String(data.access_token ?? data.token ?? "");
       const refresh = data.refresh_token
         ? String(data.refresh_token)
         : undefined;
       TokenManager.setTokens(access, refresh);
+      // The login endpoint returns only tokens, not the user. Fetch the
+      // authenticated user separately now that the token is set.
+      let user: User;
+      if (data.user) {
+        user = mapBackendUser(data.user as Record<string, unknown>);
+      } else {
+        const status =
+          await apiClient.get<Record<string, unknown>>("/auth/status");
+        user = mapBackendUser(
+          (status.user as Record<string, unknown>) ?? status,
+        );
+      }
       this._storeUser(user);
       return { user, access_token: access, refresh_token: refresh };
     } catch (err) {
@@ -97,32 +106,23 @@ class AuthService {
   }
 
   async register(userData: RegisterData): Promise<AuthResponse> {
-    try {
-      const payload = {
-        email: userData.email,
-        password: userData.password,
-        first_name: userData.firstName,
-        last_name: userData.lastName,
-        phone_number: userData.phoneNumber,
-      };
-      const data = await apiClient.post<Record<string, unknown>>(
-        "/auth/register",
-        payload,
-        { skipAuth: true },
-      );
-      const user = mapBackendUser(
-        (data.user as Record<string, unknown>) ?? data,
-      );
-      const access = String(data.access_token ?? data.token ?? "");
-      const refresh = data.refresh_token
-        ? String(data.refresh_token)
-        : undefined;
-      TokenManager.setTokens(access, refresh);
-      this._storeUser(user);
-      return { user, access_token: access, refresh_token: refresh };
-    } catch (err) {
-      throw err;
-    }
+    const payload = {
+      email: userData.email,
+      password: userData.password,
+      first_name: userData.firstName,
+      last_name: userData.lastName,
+      phone_number: userData.phoneNumber,
+    };
+    // The register endpoint creates the account but does not return tokens
+    // (it returns a verification token). Log in immediately afterwards to
+    // obtain the access/refresh tokens and the authenticated user.
+    await apiClient.post<Record<string, unknown>>("/auth/register", payload, {
+      skipAuth: true,
+    });
+    return this.login({
+      email: userData.email,
+      password: userData.password,
+    });
   }
 
   async logout(): Promise<void> {
@@ -140,7 +140,7 @@ class AuthService {
     const stored = this.getCurrentUserFromStorage();
     if (stored) return stored;
 
-    const data = await apiClient.get<Record<string, unknown>>("/auth/me");
+    const data = await apiClient.get<Record<string, unknown>>("/auth/status");
     const user = mapBackendUser((data.user as Record<string, unknown>) ?? data);
     this._storeUser(user);
     return user;
@@ -158,6 +158,25 @@ class AuthService {
     const newAccess = String(data.access_token ?? data.token ?? "");
     TokenManager.setTokens(newAccess);
     return newAccess;
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    await apiClient.post(
+      "/auth/password/reset/request",
+      { email },
+      { skipAuth: true },
+    );
+  }
+
+  async confirmPasswordReset(
+    token: string,
+    newPassword: string,
+  ): Promise<void> {
+    await apiClient.post(
+      "/auth/password/reset/confirm",
+      { token, new_password: newPassword },
+      { skipAuth: true },
+    );
   }
 
   isAuthenticated(): boolean {
