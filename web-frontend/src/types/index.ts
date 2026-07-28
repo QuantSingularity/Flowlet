@@ -52,17 +52,10 @@ export interface User extends BaseEntity {
 export type UserRole = "customer" | "admin" | "support" | "compliance";
 
 export type UserStatus =
-  | "active"
-  | "inactive"
-  | "suspended"
-  | "pending_verification";
+  "active" | "inactive" | "suspended" | "pending_verification";
 
 export type KYCStatus =
-  | "not_started"
-  | "in_progress"
-  | "completed"
-  | "rejected"
-  | "expired";
+  "not_started" | "in_progress" | "completed" | "rejected" | "expired";
 
 export interface Permission {
   id: string;
@@ -135,11 +128,7 @@ export interface Account extends BaseEntity {
 }
 
 export type AccountType =
-  | "checking"
-  | "savings"
-  | "credit"
-  | "investment"
-  | "business";
+  "checking" | "savings" | "credit" | "investment" | "business";
 
 export type AccountStatus = "active" | "inactive" | "frozen" | "closed";
 
@@ -173,21 +162,10 @@ export interface Transaction extends BaseEntity {
 }
 
 export type TransactionType =
-  | "debit"
-  | "credit"
-  | "transfer"
-  | "payment"
-  | "refund"
-  | "fee"
-  | "interest";
+  "debit" | "credit" | "transfer" | "payment" | "refund" | "fee" | "interest";
 
 export type TransactionStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "reversed";
+  "pending" | "processing" | "completed" | "failed" | "cancelled" | "reversed";
 
 export type TransactionCategory =
   | "food_dining"
@@ -252,12 +230,7 @@ export type CardType = "debit" | "credit" | "prepaid" | "virtual";
 export type CardBrand = "visa" | "mastercard" | "amex" | "discover";
 
 export type CardStatus =
-  | "active"
-  | "inactive"
-  | "blocked"
-  | "expired"
-  | "lost"
-  | "stolen";
+  "active" | "inactive" | "blocked" | "expired" | "lost" | "stolen";
 
 export interface SpendingLimits {
   daily: Money;
@@ -588,11 +561,7 @@ export interface AnalyticsData {
 // Notification (used by store/uiSlice)
 // ============================================================================
 export type NotificationType =
-  | "transaction"
-  | "security"
-  | "alert"
-  | "info"
-  | "promotion";
+  "transaction" | "security" | "alert" | "info" | "promotion";
 
 export interface Notification {
   id: string;

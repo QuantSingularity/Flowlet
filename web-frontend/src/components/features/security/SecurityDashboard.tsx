@@ -93,11 +93,7 @@ interface SecurityEvent {
 interface ThreatIndicator {
   id: string;
   type:
-    | "ip_address"
-    | "domain"
-    | "file_hash"
-    | "user_behavior"
-    | "network_pattern";
+    "ip_address" | "domain" | "file_hash" | "user_behavior" | "network_pattern";
   value: string;
   severity: "low" | "medium" | "high" | "critical";
   confidence: number; // 0-100

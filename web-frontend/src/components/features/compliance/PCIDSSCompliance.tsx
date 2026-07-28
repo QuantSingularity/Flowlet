@@ -27,12 +27,7 @@ interface PCIRequirement {
   title: string;
   description: string;
   category:
-    | "network"
-    | "data"
-    | "vulnerability"
-    | "access"
-    | "monitoring"
-    | "policy";
+    "network" | "data" | "vulnerability" | "access" | "monitoring" | "policy";
   status: "compliant" | "non_compliant" | "in_progress" | "not_applicable";
   lastAssessed: string;
   nextAssessment: string;

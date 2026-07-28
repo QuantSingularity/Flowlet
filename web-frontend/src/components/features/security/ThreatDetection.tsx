@@ -108,11 +108,7 @@ interface ThreatDetection {
   severity: "low" | "medium" | "high" | "critical";
   confidence: number;
   status:
-    | "active"
-    | "investigating"
-    | "contained"
-    | "resolved"
-    | "false_positive";
+    "active" | "investigating" | "contained" | "resolved" | "false_positive";
   source: {
     type: "network" | "endpoint" | "email" | "web" | "database" | "application";
     identifier: string;
