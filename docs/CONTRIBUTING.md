@@ -421,9 +421,9 @@ Create a new wallet for the authenticated user.
 
 \```bash
 curl -X POST http://localhost:5000/api/v1/accounts/wallets \
- -H "Authorization: Bearer TOKEN" \
- -H "Content-Type: application/json" \
- -d '{"currency": "USD"}'
+-H "Authorization: Bearer TOKEN" \
+-H "Content-Type: application/json" \
+-d '{"currency": "USD"}'
 \```
 ````
 
