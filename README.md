@@ -4,7 +4,7 @@
 ![Test Coverage](https://img.shields.io/badge/coverage-91%25-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-![Flowlet Dashboard](docs/images/dashboard.bmp)
+![Flowlet HomePage](docs/images/homepage.bmp)
 
 ---
 
