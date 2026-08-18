@@ -1,237 +1,237 @@
-# Flowlet - Embedded Finance Platform
+# Flowlet
 
-![CI/CD Status](https://img.shields.io/github/actions/workflow/status/quantsingularity/Flowlet/cicd.yml?branch=main&label=CI/CD&logo=github)
-![Test Coverage](https://img.shields.io/badge/coverage-91%25-green)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![CI/CD Status](https://img.shields.io/github/actions/workflow/status/quantsingularity/Flowlet/cicd.yml?branch=main&label=CI%2FCD&logo=github)
 
-![Flowlet HomePage](docs/images/homepage.bmp)
+## Embedded Finance Platform
 
----
+Flowlet is an embedded finance platform: a single Flask application exposing wallets, payments, card issuance, KYC/AML compliance, a double-entry ledger, and a no-code workflow engine through one REST API, paired with a React web dashboard. A separate ML service trains and serves a genuine fraud-detection ensemble (XGBoost, LightGBM, Random Forest, and Isolation Forest) that's wired into the live API rather than sitting disconnected.
+
+<div align="center">
+  <img src="docs/images/homepage.bmp" alt="Flowlet HomePage" width="100%">
+</div>
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Project Structure](#project-structure)
-- [Core Value Proposition](#core-value-proposition)
-- [Key Features](#key-features)
+- [Feature Status](#feature-status)
 - [Technology Stack](#technology-stack)
-- [Technical Architecture](#technical-architecture)
-- [Installation & Setup](#installation--setup)
+- [Architecture](#architecture)
+- [Installation and Setup](#installation-and-setup)
+- [Running the Stack](#running-the-stack)
+- [API Surface](#api-surface)
 - [Testing](#testing)
 - [CI/CD Pipeline](#cicd-pipeline)
 - [Documentation](#documentation)
-- [Contributing Guidelines](#contributing-guidelines)
+- [Contributing](#contributing)
 - [License](#license)
-
----
 
 ## Overview
 
-Flowlet simplifies embedded finance by exposing payments, wallets, card issuance, and compliance through a single unified API. It is cloud-native and microservices-based, emphasizing scalability, security, and regulatory readiness while reducing operational overhead. Developer SDKs, documentation, and built-in AI for fraud detection and observability accelerate integration so teams can deliver auditable finance features without rebuilding core banking primitives.
-
-## Key Features
-
-Flowlet's strength lies in its comprehensive suite of embedded finance capabilities, meticulously implemented across its microservices architecture.
-
-| Feature Domain                 | Core Functionality                                                                                    | Key Backend Modules                                                                          |
-| :----------------------------- | :---------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
-| **Digital Wallet Management**  | Wallet creation, transaction processing, multi-currency support, real-time notifications.             | `backend/src/routes/wallet.py`, `backend/src/models/account.py`, `backend/src/currency/`     |
-| **Payment Processing**         | Payment routing, external gateway integration (e.g., Stripe), bank transfers, transaction validation. | `backend/src/routes/payment.py`, `backend/src/integrations/payments/`                        |
-| **Card Issuance & Management** | Card lifecycle events, transaction authorization, advanced card controls.                             | `backend/src/routes/card.py`, `backend/src/models/card.py`                                   |
-| **KYC/AML Compliance**         | Identity verification, sanctions screening, regulatory compliance workflows, audit trails.            | `backend/src/routes/kyc_aml.py`, `backend/src/compliance/`                                   |
-| **Ledger & Accounting**        | Meticulous recording of financial transactions, double-entry accounting, auditability.                | `backend/src/routes/ledger.py`, `backend/src/models/ledger.py`, `backend/src/utils/audit.py` |
-| **AI-Enhanced Services**       | Real-time fraud detection, risk assessment, and intelligent support.                                  | `backend/src/ai/`, `backend/src/ml/fraud_detection/`                                         |
-| **No-Code Workflow Engine**    | Configuration and execution of custom financial rules and workflows.                                  | `backend/src/nocode/`                                                                        |
-
----
+Flowlet demonstrates an embedded finance workflow across a real, runnable codebase. What's structured as a "microservices architecture" in earlier descriptions of this project is, in the current code, a single Flask application with around 18 blueprints registered under one `/api/v1` prefix, plus an in-process performance layer handling caching, circuit breakers, and rate limiting. The fraud-detection ensemble is a genuine exception to the usual disconnected-research-library pattern: it's trainable and callable through its own `/fraud/*` endpoints.
 
 ## Project Structure
 
-Flowlet utilizes a monorepo structure, separating the core backend services, frontend applications, and infrastructure configurations.
+```
+Flowlet/
+├── code/
+│   ├── backend/                # Flask application (single process)
+│   │   ├── src/routes/         # ~18 blueprints: user, auth, wallet, payment,
+│   │   │                       # ledger, compliance, fraud, card, kyc, and more
+│   │   ├── src/gateway/        # In-process caching, circuit breakers, rate limiting
+│   │   ├── src/integrations/   # Stripe, ACH, Plaid, FDX
+│   │   ├── src/nocode/         # Workflow builder, config engine, rule engine
+│   │   ├── src/services/       # Payment, ledger, compliance business logic
+│   │   ├── src/models/         # SQLAlchemy models
+│   │   └── tests/              # unit, integration, functional, performance, security, api
+│   └── ml_services/
+│       ├── fraud_detection/    # IsolationForest, RandomForest, XGBoost, LightGBM ensemble
+│       ├── ai_models/          # risk_assessment, support_chatbot, transaction_intelligence
+│       └── tests/              # ML service test suite
+├── web-frontend/               # React (Vite) dashboard
+├── infrastructure/             # Docker, Kubernetes manifests, Terraform, Ansible, monitoring
+├── scripts/                    # Setup, start, stop, backup, deployment, monitoring scripts
+├── docs/                       # Documentation (this directory)
+└── README.md
+```
 
-| Directory         | Description                                                                               |
-| :---------------- | :---------------------------------------------------------------------------------------- |
-| `code/`           | Contains the core Python microservices, shared libraries, and the main application logic. |
-| `web-frontend/`   | The main web application built with React and TypeScript.                                 |
-| `scripts/`        | Essential shell scripts for setup, building, and running the application.                 |
-| `tests/`          | Comprehensive test suite covering unit, integration, performance, and security testing.   |
-| `docs/`           | Documentation, including API reference and architecture specifications.                   |
-| `infrastructure/` | Comprehensive DevOps and Infrastructure-as-Code (IaC) configurations.                     |
-| `.github/`        | Configuration for GitHub Actions and repository templates.                                |
+## Feature Status
 
----
+### Application tier (wired and tested)
+
+| Component                   | Details                                                                                                                                                                                                    |
+| :-------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **API**                     | A single Flask application exposing `/api/v1` blueprints for users, auth, wallets, payments, ledger, analytics, compliance, KYC/AML, cards, monitoring, security, banking integrations, and an AI service. |
+| **In-process gateway**      | A `PerformanceOptimizedGateway` class handling Redis-backed caching, connection pooling, circuit breakers, and rate limiting inside the same process, rather than as a separate gateway service.           |
+| **Payments**                | A real Stripe SDK integration, an ACH integration, and a payment-provider factory pattern for routing between them.                                                                                        |
+| **Open banking**            | Plaid and FDX integration modules for linking external bank accounts.                                                                                                                                      |
+| **Fraud detection**         | A genuine ensemble (Isolation Forest, Random Forest, XGBoost, LightGBM) trainable and queryable through its own `/fraud/detect`, `/fraud/model/train`, and `/fraud/alerts` endpoints.                      |
+| **No-code workflow engine** | A workflow builder, configuration engine, and rule engine for defining custom financial rules without writing code.                                                                                        |
+| **Ledger and compliance**   | Double-entry ledger recording, plus KYC/AML routes and a compliance service module.                                                                                                                        |
+| **Data layer**              | SQLAlchemy over PostgreSQL, with Redis for caching, and Alembic-style migrations under `code/backend/migrations`.                                                                                          |
+| **Web dashboard**           | React 19 and TypeScript app (Vite, Redux Toolkit, Tailwind CSS v4, axios).                                                                                                                                 |
 
 ## Technology Stack
 
-Flowlet is built on a modern, high-performance, and cloud-native stack.
+| Area                 | Technology                                                                                         |
+| :------------------- | :------------------------------------------------------------------------------------------------- |
+| Backend API          | Python 3.11+, Flask, Flask-RESTX (OpenAPI/Swagger), Gunicorn                                       |
+| Data layer           | SQLAlchemy 2, PostgreSQL, Redis                                                                    |
+| Payments             | Stripe SDK, a custom ACH integration                                                               |
+| Open banking         | Plaid and FDX integration modules                                                                  |
+| ML / Fraud detection | scikit-learn (Isolation Forest, Random Forest), XGBoost, LightGBM                                  |
+| Web frontend         | React 19, TypeScript, Vite, Redux Toolkit, Tailwind CSS v4, axios                                  |
+| Infrastructure       | Docker, Docker Compose, Kubernetes manifests, Terraform, Ansible                                   |
+| Monitoring           | Prometheus, Grafana, Alertmanager, Postgres and Redis exporters                                    |
+| CI/CD                | GitHub Actions                                                                                     |
+| Testing              | pytest across six suites (unit, integration, functional, performance, security, api); Vitest (web) |
 
-| Category     | Component        | Technology                      | Detail                                                                              |
-| :----------- | :--------------- | :------------------------------ | :---------------------------------------------------------------------------------- |
-| **Backend**  | Languages        | Python                          | Primary language for all microservices.                                             |
-|              | Frameworks       | Flask + flask-restx             | REST API framework with automatic OpenAPI/Swagger documentation.                    |
-|              | Databases        | PostgreSQL, Redis               | PostgreSQL for transactional data; Redis for caching and session management.        |
-|              | Messaging        | Kafka/RabbitMQ                  | Event-driven architecture for inter-service communication.                          |
-| **Frontend** | Web              | React, TypeScript               | Main framework for the web dashboard.                                               |
-|              | Styling          | Tailwind CSS                    | Utility-first CSS framework for rapid UI development.                               |
-| **AI/ML**    | Frameworks       | scikit-learn, XGBoost, LightGBM | Ensemble fraud detection; see [ML Model Performance](docs/ML_MODEL_PERFORMANCE.md). |
-| **DevOps**   | Containerization | Docker                          | For packaging services.                                                             |
-|              | Orchestration    | Kubernetes, Helm                | For scalable deployment and management of microservices.                            |
-|              | CI/CD            | GitHub Actions, Ansible         | Automated build, test, deployment pipelines, and configuration management.          |
-|              | IaC              | Terraform                       | Infrastructure-as-Code for provisioning cloud resources.                            |
+Kubernetes manifests for Kafka and RabbitMQ exist under `infrastructure/kubernetes/messaging`, but neither is a dependency of the backend, and no producer or consumer code calls them; Celery is a declared dependency but isn't instantiated anywhere in the current codebase.
 
----
+## Architecture
 
-## Technical Architecture
+```
+Client
+  └── web-frontend (React)               ── HTTP/JSON ──┐
+                                                        ▼
+Backend (single Flask process, /api/v1)
+  ├── Gateway layer   caching, circuit breakers, rate limiting (in-process)
+  ├── Blueprints       user, auth, wallet, payment, ledger, compliance, kyc,
+  │                    card, fraud, analytics, monitoring, security, banking
+  ├── Integrations      Stripe, ACH, Plaid, FDX
+  ├── No-code engine     workflow builder, config engine, rule engine
+  └── Data layer          PostgreSQL (SQLAlchemy), Redis
 
-Flowlet implements a **Microservices Architecture** with a strong focus on **Event-Driven Design** and **Security-by-Design**.
+ML service (code/ml_services)
+  fraud_detection ensemble (Isolation Forest, Random Forest, XGBoost, LightGBM)
+  called directly by the backend's /fraud/* blueprint, not a separate deployed service
+```
 
-    Flowlet/
-    ├── API Gateway (Authentication, Rate Limiting)
-    ├── Frontend Application (Web)
-    ├── Core Microservices
-    │   ├── User Service (Auth, Profile)
-    │   ├── Wallet Service (Accounts, Transactions)
-    │   ├── Payment Service (Processing, Routing)
-    │   ├── Card Service (Issuance, Controls)
-    │   ├── Compliance Service (KYC/AML)
-    │   └── Ledger Service (Accounting, Audit)
-    ├── AI/ML Engine
-    │   ├── Fraud Detection Service
-    │   └── Risk Assessment Service
-    ├── Infrastructure
-    │   ├── Message Queue
-    │   ├── Database Cluster
-    │   └── Observability Stack (Prometheus, Grafana)
-    └── Integrations Layer
-        ├── Open Banking (Plaid, FDX)
-        └── Payment Processors (Stripe)
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detail.
 
----
+## Installation and Setup
 
-## Installation & Setup
-
-Flowlet supports two primary deployment environments: **Development** (local setup) and **Production** (Kubernetes/Helm).
-
-### Prerequisites
-
-| Requirement       | Detail                                                    |
-| :---------------- | :-------------------------------------------------------- |
-| **Python**        | 3.11+                                                     |
-| **Node.js**       | 20+                                                       |
-| **pnpm**          | Package manager for frontend dependencies.                |
-| **Docker**        | Docker Engine and Docker Compose (for development setup). |
-| **Kubectl, Helm** | Required for production setup.                            |
-
-### Quick Start (Development)
-
-The `setup.sh` script is the primary tool for environment configuration. Use the `--env development` flag for a local setup.
+Prerequisites: Python 3.11+, Node.js 20+, and Docker (for the full local stack).
 
 ```bash
-# Clone the repository
 git clone https://github.com/quantsingularity/Flowlet.git
 cd Flowlet
 
-# Run the setup script for the development environment
-./scripts/setup.sh --env development
+# Backend (also installs ml_services dependencies)
+cd code/backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 
-# To start all services (backend and frontend)
-./dev-start.sh
+# Web frontend
+cd ../../web-frontend
+npm install
 ```
 
-### Production Deployment (Kubernetes)
-
-For production, Flowlet is designed to be deployed using Helm charts to a Kubernetes cluster.
+For an automated setup:
 
 ```bash
-# Run the setup script for the production environment
-# This will check for kubectl/helm, create secrets, and deploy via Helm
-./scripts/setup.sh --env production --namespace flowlet-prod
-
-# To check the status of the deployment
-kubectl get pods -n flowlet-prod
+git clone https://github.com/quantsingularity/Flowlet.git
+cd Flowlet
+./scripts/setup.sh --env development
+./scripts/start.sh
 ```
 
----
+`scripts/setup.sh --env development` generates a `dev-start.sh` wrapper at the repo root; `scripts/start.sh` checks for it and runs it, and will tell you to re-run setup if it's missing.
 
-## AI/ML Performance
+Full, environment-specific instructions are in [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
-The fraud detection ensemble (XGBoost + LightGBM + Random Forest stacking) achieves:
+## Running the Stack
 
-| Metric                  | Value     |
-| ----------------------- | --------- |
-| AUC-ROC                 | **0.987** |
-| Precision               | **97.3%** |
-| Recall                  | **96.1%** |
-| F1 Score                | **96.7%** |
-| Inference latency (p50) | **8 ms**  |
+```bash
+# Full local stack (from infrastructure/docker, Docker required)
+docker compose up -d
 
-See **[docs/ML_MODEL_PERFORMANCE.md](docs/ML_MODEL_PERFORMANCE.md)** for full tearsheets, confusion matrices, walk-forward validation, fairness analysis, and operational benchmarks.
+# Or run components individually:
 
----
+# Backend (from code/backend, venv active)
+python app.py                      # serves http://0.0.0.0:5000
+
+# Web dashboard (from web-frontend)
+npm run dev
+```
+
+Production deployment is documented as a Kubernetes and Helm rollout (`scripts/setup.sh --env production`), but the referenced Helm chart directory isn't included in this repository; the raw manifests under `infrastructure/kubernetes` are the deployable artifacts currently present.
+
+See [docs/USAGE.md](docs/USAGE.md) and [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+
+## API Surface
+
+Base URL `http://localhost:5000/api/v1`.
+
+| Group                  | Highlights                                                                    |
+| :--------------------- | :---------------------------------------------------------------------------- |
+| Auth / User            | Registration, login, profile management                                       |
+| Wallet                 | Wallet creation, balances, transaction history                                |
+| Payment                | Payment initiation, routing, `/payment/{wallet_id}/send` P2P alias            |
+| Ledger                 | Double-entry transaction recording                                            |
+| Card                   | Card issuance, lifecycle, controls                                            |
+| KYC / KYC-AML          | Identity verification, sanctions screening                                    |
+| Fraud                  | `detect`, `detect/batch`, `model/train`, `model/status`, `alerts`, `feedback` |
+| Compliance / Analytics | Regulatory workflows and reporting                                            |
+| Banking integrations   | Plaid and FDX account linking                                                 |
+| Monitoring / Security  | Health, metrics, security checks                                              |
+
+Full request and response shapes are in [docs/API.md](docs/API.md).
 
 ## Testing
 
-Flowlet maintains a high standard of code quality with **91% test coverage**. The testing framework is comprehensive and covers all layers of the application.
+```bash
+# Backend, from code/backend, all suites
+pytest
 
-| Test Type             | Location             | Purpose                                                               |
-| :-------------------- | :------------------- | :-------------------------------------------------------------------- |
-| **Unit Tests**        | `tests/unit/`        | Isolated testing of individual functions and classes.                 |
-| **Integration Tests** | `tests/integration/` | Validating inter-service communication and external API integrations. |
-| **Functional Tests**  | `tests/functional/`  | Testing core business logic and user flows.                           |
-| **Performance Tests** | `tests/performance/` | Benchmarking API response times and system throughput.                |
-| **Security Tests**    | `tests/security/`    | Automated checks for common security vulnerabilities.                 |
+# Backend, a single suite
+pytest tests/unit
+pytest tests/integration
+pytest tests/functional
+pytest tests/performance
+pytest tests/security
+pytest tests/api
 
----
+# ML service (from code/ml_services)
+pytest
+
+# Web (from web-frontend)
+npm test
+```
+
+The backend has 21 test files spread across six categories (unit, integration, functional, performance, security, api). The ML service has its own 3-file suite, and the web dashboard has 18 test files.
 
 ## CI/CD Pipeline
 
-AlphaMind uses GitHub Actions for continuous integration and deployment:
+GitHub Actions (`.github/workflows/cicd.yml`) runs three jobs on push, pull request, and manual dispatch:
 
-| Stage                | Control Area                    | Institutional-Grade Detail                                                              |
-| :------------------- | :------------------------------ | :-------------------------------------------------------------------------------------- |
-| **Formatting Check** | Change Triggers                 | Enforced on all `push` and `pull_request` events to `main` and `develop`                |
-|                      | Manual Oversight                | On-demand execution via controlled `workflow_dispatch`                                  |
-|                      | Source Integrity                | Full repository checkout with complete Git history for auditability                     |
-|                      | Python Runtime Standardization  | Python 3.10 with deterministic dependency caching                                       |
-|                      | Backend Code Hygiene            | `autoflake` to detect unused imports/variables using non-mutating diff-based validation |
-|                      | Backend Style Compliance        | `black --check` to enforce institutional formatting standards                           |
-|                      | Non-Intrusive Validation        | Temporary workspace comparison to prevent unauthorized source modification              |
-|                      | Node.js Runtime Control         | Node.js 18 with locked dependency installation via `npm ci`                             |
-|                      | Web Frontend Formatting Control | Prettier checks for web-facing assets                                                   |
-|                      | Mobile Frontend Formatting      | Prettier enforcement for mobile application codebases                                   |
-|                      | Documentation Governance        | Repository-wide Markdown formatting enforcement                                         |
-|                      | Infrastructure Configuration    | Prettier validation for YAML/YML infrastructure definitions                             |
-|                      | Compliance Gate                 | Any formatting deviation fails the pipeline and blocks merge                            |
+| Job                       | Depends on          | What it does                                                                       |
+| :------------------------ | :------------------ | :--------------------------------------------------------------------------------- |
+| Code Quality Checks       | -                   | Python formatter checks (autoflake, black) and a repository-wide Prettier check    |
+| Backend Tests             | Code Quality Checks | Runs the pytest suite with coverage and uploads the coverage report as an artifact |
+| Web-Frontend Test & Build | Code Quality Checks | Runs the frontend test suite and produces the production web build                 |
 
 ## Documentation
 
-For detailed documentation, please refer to the following resources:
+| Document                                                     | Contents                               |
+| :----------------------------------------------------------- | :------------------------------------- |
+| [docs/README.md](docs/README.md)                             | Documentation index                    |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                 | System architecture                    |
+| [docs/API.md](docs/API.md)                                   | REST API reference                     |
+| [docs/INSTALLATION.md](docs/INSTALLATION.md)                 | Setup for all components               |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md)               | Environment variables and config       |
+| [docs/USAGE.md](docs/USAGE.md)                               | Running and using the platform         |
+| [docs/CLI.md](docs/CLI.md)                                   | Helper scripts reference               |
+| [docs/FEATURE_MATRIX.md](docs/FEATURE_MATRIX.md)             | Feature status, implemented vs planned |
+| [docs/ML_MODEL_PERFORMANCE.md](docs/ML_MODEL_PERFORMANCE.md) | Model evaluation methodology           |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)           | Common issues and fixes                |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)                 | Contribution guide                     |
+| [docs/examples/](docs/examples/)                             | Worked examples                        |
 
-| Document                    | Path                 | Description                                                 |
-| :-------------------------- | :------------------- | :---------------------------------------------------------- |
-| **README**                  | `README.md`          | High-level overview, project scope, and quickstart          |
-| **API Reference**           | `API.md`             | Detailed documentation for all API endpoints                |
-| **CLI Reference**           | `CLI.md`             | Command-line interface usage, commands, and examples        |
-| **Installation Guide**      | `INSTALLATION.md`    | Step-by-step installation and environment setup             |
-| **User Guide**              | `USAGE.md`           | Comprehensive guide for end-users, workflows, and examples  |
-| **Contributing Guidelines** | `CONTRIBUTING.md`    | Contribution process, coding standards, and PR requirements |
-| **Architecture Overview**   | `ARCHITECTURE.md`    | System architecture, components, and design rationale       |
-| **Configuration Guide**     | `CONFIGURATION.md`   | Configuration options, environment variables, and tuning    |
-| **Feature Matrix**          | `FEATURE_MATRIX.md`  | Feature capabilities, coverage, and roadmap alignment       |
-| **Troubleshooting**         | `TROUBLESHOOTING.md` | Common issues, diagnostics, and remediation steps           |
+## Contributing
 
-## Contributing Guidelines
-
-We welcome contributions to Flowlet. Please follow the organization's standard contribution process:
-
-1.  **Open an Issue:** Discuss your proposed feature or bug fix before starting work.
-2.  **Fork and Branch:** Fork the repository and create a new branch for your changes.
-3.  **Code Standards:** Adhere to the existing code style and ensure all tests pass.
-4.  **Documentation:** Update the relevant documentation for any new features or changes.
-5.  **Pull Request:** Submit a pull request with a clear description of your changes and reference the related issue.
-
----
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## License
 
-Flowlet is released under the **MIT License**. For full details, see the [LICENSE](LICENSE) file in the repository root.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
