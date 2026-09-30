@@ -228,8 +228,8 @@ const ProfilePage: React.FC = () => {
         <CardContent>
           <dl className="space-y-3 text-sm">
             {[
-              { label: "Account ID", value: user?.id ?? "—" },
-              { label: "Role", value: user?.role ?? "—" },
+              { label: "Account ID", value: user?.id ?? "-" },
+              { label: "Role", value: user?.role ?? "-" },
               {
                 label: "Member since",
                 value: user?.createdAt
@@ -238,7 +238,7 @@ const ProfilePage: React.FC = () => {
                       month: "long",
                       day: "numeric",
                     })
-                  : "—",
+                  : "-",
               },
               {
                 label: "Last updated",
@@ -248,7 +248,7 @@ const ProfilePage: React.FC = () => {
                       month: "long",
                       day: "numeric",
                     })
-                  : "—",
+                  : "-",
               },
             ].map(({ label, value }) => (
               <div key={label} className="flex justify-between gap-4">

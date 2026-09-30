@@ -209,7 +209,7 @@ export interface WalletTxProp {
   id: string;
   description: string;
   amount: number;
-  /** "credit" | "debit" or any string — credit = green + sign */
+  /** "credit" | "debit" or any string - credit = green + sign */
   type: string;
   date: string;
   status?: string;

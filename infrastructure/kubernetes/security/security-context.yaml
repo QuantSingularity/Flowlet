@@ -1,4 +1,4 @@
-# Security context templates — these are reference examples only.
+# Security context templates - these are reference examples only.
 # Actual security contexts are applied inline in each service's Deployment manifest.
 
 ---

@@ -165,7 +165,7 @@ const LoginScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Right panel — form ── */}
+      {/* ── Right panel - form ── */}
       <div className="flex flex-1 items-center justify-center px-6 py-12 lg:px-12">
         <div className="w-full max-w-[400px] animate-fade-in-up">
           {/* Mobile logo */}

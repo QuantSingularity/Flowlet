@@ -34,7 +34,7 @@ pytestmark = pytest.mark.skipif(
 # ---------------------------------------------------------------------------
 
 N_SAMPLES = 2000
-FRAUD_RATE = 0.031  # 3.1% — matches production class imbalance
+FRAUD_RATE = 0.031  # 3.1% - matches production class imbalance
 RANDOM_SEED = 42
 
 
@@ -48,44 +48,44 @@ def _make_dataset() -> tuple:
     # Fraud transactions: higher amount, higher velocity, unusual time, new device
     fraud_feats = np.column_stack(
         [
-            rng.lognormal(5.5, 0.8, n_fraud),  # amount — higher
+            rng.lognormal(5.5, 0.8, n_fraud),  # amount - higher
             rng.integers(0, 24, n_fraud),  # hour_of_day
             rng.integers(0, 7, n_fraud),  # day_of_week
             rng.integers(0, 2, n_fraud),  # is_weekend
-            rng.normal(2.5, 0.8, n_fraud),  # amount_zscore — elevated
-            rng.poisson(8, n_fraud),  # velocity_1h — high
-            rng.poisson(40, n_fraud),  # velocity_24h — high
+            rng.normal(2.5, 0.8, n_fraud),  # amount_zscore - elevated
+            rng.poisson(8, n_fraud),  # velocity_1h - high
+            rng.poisson(40, n_fraud),  # velocity_24h - high
             rng.poisson(80, n_fraud),  # velocity_7d
-            rng.integers(1, 30, n_fraud),  # user_age_days — new
+            rng.integers(1, 30, n_fraud),  # user_age_days - new
             rng.lognormal(5.0, 1.0, n_fraud),  # avg_transaction_amount
-            rng.poisson(5, n_fraud),  # transaction_count_30d — low
-            rng.poisson(2, n_fraud),  # unique_merchants_30d — low
-            rng.integers(1, 2, n_fraud),  # new_device — yes
-            rng.integers(1, 2, n_fraud),  # new_location — yes
-            rng.integers(1, 2, n_fraud),  # unusual_time — yes
-            rng.integers(1, 2, n_fraud),  # high_risk_merchant — yes
+            rng.poisson(5, n_fraud),  # transaction_count_30d - low
+            rng.poisson(2, n_fraud),  # unique_merchants_30d - low
+            rng.integers(1, 2, n_fraud),  # new_device - yes
+            rng.integers(1, 2, n_fraud),  # new_location - yes
+            rng.integers(1, 2, n_fraud),  # unusual_time - yes
+            rng.integers(1, 2, n_fraud),  # high_risk_merchant - yes
         ]
     ).astype(float)
 
     # Legit transactions: normal amounts, established patterns
     legit_feats = np.column_stack(
         [
-            rng.lognormal(3.5, 0.6, n_legit),  # amount — normal
-            rng.integers(8, 20, n_legit),  # hour_of_day — business hours
+            rng.lognormal(3.5, 0.6, n_legit),  # amount - normal
+            rng.integers(8, 20, n_legit),  # hour_of_day - business hours
             rng.integers(0, 7, n_legit),
             rng.integers(0, 2, n_legit),
-            rng.normal(0.0, 0.5, n_legit),  # amount_zscore — normal
-            rng.poisson(1, n_legit),  # velocity_1h — low
-            rng.poisson(5, n_legit),  # velocity_24h — normal
+            rng.normal(0.0, 0.5, n_legit),  # amount_zscore - normal
+            rng.poisson(1, n_legit),  # velocity_1h - low
+            rng.poisson(5, n_legit),  # velocity_24h - normal
             rng.poisson(25, n_legit),  # velocity_7d
-            rng.integers(100, 1000, n_legit),  # user_age_days — established
+            rng.integers(100, 1000, n_legit),  # user_age_days - established
             rng.lognormal(3.8, 0.5, n_legit),
             rng.poisson(30, n_legit),
             rng.poisson(8, n_legit),
-            rng.integers(0, 1, n_legit),  # new_device — no
-            rng.integers(0, 1, n_legit),  # new_location — no
-            rng.integers(0, 1, n_legit),  # unusual_time — no
-            rng.integers(0, 1, n_legit),  # high_risk_merchant — no
+            rng.integers(0, 1, n_legit),  # new_device - no
+            rng.integers(0, 1, n_legit),  # new_location - no
+            rng.integers(0, 1, n_legit),  # unusual_time - no
+            rng.integers(0, 1, n_legit),  # high_risk_merchant - no
         ]
     ).astype(float)
 
@@ -210,7 +210,7 @@ class TestXGBoostPerformance:
 
 
 # ---------------------------------------------------------------------------
-# IsolationForest (anomaly detection — unsupervised)
+# IsolationForest (anomaly detection - unsupervised)
 # ---------------------------------------------------------------------------
 
 

@@ -1,4 +1,4 @@
-# Flowlet AI/ML — Fraud Detection Model Performance
+# Flowlet AI/ML - Fraud Detection Model Performance
 
 > **Dataset:** 1.2 million synthetic + real-pattern transactions spanning Jan 2022 – Dec 2023.
 > Fraud prevalence: **3.1%** (class-imbalanced; SMOTE oversampling applied during training).
@@ -22,7 +22,7 @@ production and delivers the best AUC-ROC with an acceptable 8 ms inference laten
 
 ---
 
-## 1. Ensemble Model — Full Tearsheet
+## 1. Ensemble Model - Full Tearsheet
 
 ### Confusion Matrix (240,000 test transactions)
 
@@ -40,7 +40,7 @@ Actual Legit         204 (FP)      232,259 (TN)
 | F1 Score              | **96.7%** | 2·P·R / (P + R) |
 | False Positive Rate   | **0.09%** | FP / (FP + TN)  |
 | False Negative Rate   | **3.83%** | FN / (FN + TP)  |
-| Matthews Corr. Coeff. | **0.966** | —               |
+| Matthews Corr. Coeff. | **0.966** | -               |
 
 ### AUC-ROC Curve (key operating points)
 
@@ -52,7 +52,7 @@ Actual Legit         204 (FP)      232,259 (TN)
 | 0.020                     | 0.981                                |
 | 0.050                     | 0.993                                |
 
-**AUC-ROC = 0.987** — Operating at FPR = 0.09% captures 96.1% of all fraud.
+**AUC-ROC = 0.987** - Operating at FPR = 0.09% captures 96.1% of all fraud.
 
 ### Precision-Recall Curve
 
@@ -96,7 +96,7 @@ Actual Legit         204 (FP)      232,259 (TN)
 
 - **AUC-ROC:** 0.978
 - **Training time:** 1.8 minutes (CPU)
-- **Notable:** Fastest inference (2 ms) — suitable for ultra-low-latency fallback.
+- **Notable:** Fastest inference (2 ms) - suitable for ultra-low-latency fallback.
 
 ### 2.3 Random Forest
 

@@ -131,11 +131,11 @@ class DevelopmentConfig(Config):
         _log = logging.getLogger(__name__)
         if self.SECRET_KEY == self._SECRET_KEY_DEFAULT:
             _log.warning(
-                "⚠️  Using default SECRET_KEY — set SECRET_KEY env var before deploying."
+                "⚠️  Using default SECRET_KEY - set SECRET_KEY env var before deploying."
             )
         if self.JWT_SECRET_KEY == "dev-jwt-secret-change-in-production":
             _log.warning(
-                "⚠️  Using default JWT_SECRET_KEY — set JWT_SECRET_KEY env var before deploying."
+                "⚠️  Using default JWT_SECRET_KEY - set JWT_SECRET_KEY env var before deploying."
             )
 
 

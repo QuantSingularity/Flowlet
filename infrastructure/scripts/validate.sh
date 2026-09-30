@@ -67,7 +67,7 @@ validate_yaml() {
             yamllint -c .yamllint.yaml "$file" || true
         fi
     else
-        print_status "WARNING" "yamllint not installed — skipping YAML lint for $file"
+        print_status "WARNING" "yamllint not installed - skipping YAML lint for $file"
     fi
 }
 
@@ -80,7 +80,7 @@ check_k8s_manifest() {
             print_status "ERROR" "K8s manifest invalid: $file"
         fi
     else
-        print_status "WARNING" "kubectl not available — skipping K8s dry-run for $file"
+        print_status "WARNING" "kubectl not available - skipping K8s dry-run for $file"
     fi
 }
 
@@ -172,10 +172,10 @@ done
 echo ""
 echo "🔐 Checking for secrets accidentally committed..."
 if [ -f "kubernetes/secrets/secret.yaml" ]; then
-    print_status "WARNING" "kubernetes/secrets/secret.yaml exists — ensure it is in .gitignore!"
+    print_status "WARNING" "kubernetes/secrets/secret.yaml exists - ensure it is in .gitignore!"
 fi
 if [ -f "docker/.env" ]; then
-    print_status "WARNING" "docker/.env exists — ensure it is in .gitignore!"
+    print_status "WARNING" "docker/.env exists - ensure it is in .gitignore!"
 fi
 
 echo ""
@@ -188,7 +188,7 @@ echo ""
 if [ "$ERRORS" -eq 0 ]; then
     print_status "SUCCESS" "All critical checks passed!"
 else
-    print_status "ERROR" "$ERRORS critical issue(s) found — fix before deploying."
+    print_status "ERROR" "$ERRORS critical issue(s) found - fix before deploying."
 fi
 echo ""
 print_status "INFO" "Full log: $VALIDATION_LOG"

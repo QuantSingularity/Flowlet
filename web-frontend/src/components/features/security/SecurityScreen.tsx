@@ -211,10 +211,10 @@ const SecurityScreen: React.FC = () => {
               <p className="font-semibold text-lg">Security Score</p>
               <p className={cn("text-sm font-medium", scoreColor)}>
                 {score >= 80
-                  ? "Excellent — well protected"
+                  ? "Excellent - well protected"
                   : score >= 50
-                    ? "Good — room for improvement"
-                    : "Weak — take action now"}
+                    ? "Good - room for improvement"
+                    : "Weak - take action now"}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {checks.filter((c) => c.status === "disabled").length}{" "}

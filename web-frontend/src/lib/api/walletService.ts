@@ -1,4 +1,4 @@
-// Wallet service — wraps /api/v1/accounts/*, /api/v1/card/*, /api/v1/analytics/*
+// Wallet service - wraps /api/v1/accounts/*, /api/v1/card/*, /api/v1/analytics/*
 import { apiFetch, TokenManager } from "./client";
 
 // ---------------------------------------------------------------------------
@@ -146,7 +146,7 @@ const DEMO_TRANSACTIONS: Transaction[] = [
     amount: 3_200.0,
     currency: "USD",
     status: "completed",
-    description: "Salary — April 2026",
+    description: "Salary - April 2026",
     created_at: D1,
     updated_at: D1,
   },

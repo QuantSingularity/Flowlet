@@ -1,5 +1,5 @@
 """
-Database access layer — repository pattern.
+Database access layer - repository pattern.
 
 Provides strongly-typed repository classes that encapsulate all SQLAlchemy
 queries and keep ORM logic out of route handlers and service functions.

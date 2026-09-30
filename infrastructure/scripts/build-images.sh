@@ -46,7 +46,7 @@ build_service() {
             echo "✅ Pushed $image_name"
         fi
     else
-        echo "⚠️  No Dockerfile at $dockerfile_path — skipping $service"
+        echo "⚠️  No Dockerfile at $dockerfile_path - skipping $service"
     fi
 }
 

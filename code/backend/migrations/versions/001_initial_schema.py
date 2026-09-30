@@ -1,4 +1,4 @@
-"""Initial schema — users, accounts, transactions, cards, kyc records
+"""Initial schema - users, accounts, transactions, cards, kyc records
 
 Revision ID: 001_initial
 Revises:

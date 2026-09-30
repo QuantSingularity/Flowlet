@@ -414,7 +414,7 @@ export default function AIFraudDetectionScreen() {
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600">
-                Confusion Matrix — Ensemble Model (last 100k transactions)
+                Confusion Matrix - Ensemble Model (last 100k transactions)
               </CardTitle>
             </CardHeader>
             <CardContent>

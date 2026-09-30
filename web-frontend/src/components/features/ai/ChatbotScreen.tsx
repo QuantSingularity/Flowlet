@@ -25,9 +25,9 @@ const BOT_RESPONSES: Record<string, string> = {
   default:
     "I can help you with account insights, spending analysis, and financial planning. What would you like to know?",
   spending:
-    "Based on your recent activity, you've spent $2,850 this month — about 12% less than last month. Your largest category is Housing ($1,200), followed by Food & Dining ($480).",
+    "Based on your recent activity, you've spent $2,850 this month - about 12% less than last month. Your largest category is Housing ($1,200), followed by Food & Dining ($480).",
   expenses:
-    "Here are some ways to reduce expenses: 1) Your subscription services total $45/month — consider reviewing unused ones. 2) Your Food & Dining is 16% of income — cooking at home more could save ~$150/month.",
+    "Here are some ways to reduce expenses: 1) Your subscription services total $45/month - consider reviewing unused ones. 2) Your Food & Dining is 16% of income - cooking at home more could save ~$150/month.",
   transactions:
     "Your last 5 transactions were: Coffee Shop (-$4.50), Salary Deposit (+$4,200), Netflix (-$15.99), Gas Station (-$45.20), and Grocery Store (-$92.40).",
   savings:
@@ -156,7 +156,7 @@ export default function ChatbotScreen() {
       {/* Messages */}
       <Card className="flex-1 flex flex-col overflow-hidden">
         <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
-          {/* Suggested prompts — only show when just the welcome message */}
+          {/* Suggested prompts - only show when just the welcome message */}
           {messages.length === 1 && (
             <div className="flex flex-wrap gap-2 pb-2">
               {SUGGESTED_PROMPTS.map((prompt) => (

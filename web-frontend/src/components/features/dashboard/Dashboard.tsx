@@ -234,7 +234,7 @@ const Dashboard: React.FC = () => {
   const savingsRate =
     monthlyIncome > 0
       ? (((monthlyIncome - monthlySpend) / monthlyIncome) * 100).toFixed(1)
-      : "—";
+      : "-";
 
   const fmt = (n: number) =>
     n.toLocaleString("en-US", {
@@ -271,7 +271,7 @@ const Dashboard: React.FC = () => {
     {
       title: "Savings Rate",
       value:
-        typeof savingsRate === "string" && savingsRate !== "—"
+        typeof savingsRate === "string" && savingsRate !== "-"
           ? `${savingsRate}%`
           : savingsRate,
       change: `${cards.length} active card${cards.length !== 1 ? "s" : ""}`,
@@ -325,7 +325,7 @@ const Dashboard: React.FC = () => {
 
       {/* Main content grid */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Transactions — takes 2 cols */}
+        {/* Transactions - takes 2 cols */}
         <div className="lg:col-span-2">
           <TransactionList
             transactions={transactions.map((t) => ({

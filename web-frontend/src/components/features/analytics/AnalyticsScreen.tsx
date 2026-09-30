@@ -342,7 +342,7 @@ export default function AnalyticsScreen() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="text-base">
-                Daily Spending — This Week
+                Daily Spending - This Week
               </CardTitle>
             </CardHeader>
             <CardContent>

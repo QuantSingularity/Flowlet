@@ -1,4 +1,4 @@
-# Development overrides — used automatically by docker compose up in dev
+# Development overrides - used automatically by docker compose up in dev
 # DO NOT use in production (docker compose -f docker-compose.yml up)
 version: "3.8"
 

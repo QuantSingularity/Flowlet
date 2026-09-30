@@ -51,7 +51,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobile }) => {
         </Button>
       )}
 
-      {/* Desktop logo spacer — sidebar handles logo */}
+      {/* Desktop logo spacer - sidebar handles logo */}
       {!isMobile && <div className="hidden lg:block" />}
 
       {/* Search */}

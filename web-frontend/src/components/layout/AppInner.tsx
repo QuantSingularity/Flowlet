@@ -67,7 +67,7 @@ const AppInner: React.FC = () => {
           <Route path="/compliance" element={<CompliancePage />} />
           <Route path="/developer" element={<DeveloperPortalPage />} />
 
-          {/* Auth routes — redirect to /dashboard if already logged in */}
+          {/* Auth routes - redirect to /dashboard if already logged in */}
           <Route
             path="/login"
             element={

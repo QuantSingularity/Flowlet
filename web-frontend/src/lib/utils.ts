@@ -135,7 +135,7 @@ export function capitalize(str: string): string {
 export function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) {
-    // Single word — use first two characters
+    // Single word - use first two characters
     const word = parts[0];
     return (word[0] + (word[1] ?? "")).toUpperCase();
   }

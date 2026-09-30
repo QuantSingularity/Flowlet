@@ -82,23 +82,23 @@ pnpm build
 
 ## Bug Fixes Applied
 
-1. **Missing `/forgot-password` route** — Added `ForgotPasswordScreen` and route in `AppInner.tsx`
-2. **Checkbox + react-hook-form** — Replaced `{...register()}` with `<Controller>` for Radix-based checkboxes in Login & Register
-3. **SendMoney amount coercion** — Changed `z.number()` to `z.coerce.number()` so string HTML input values parse correctly
-4. **Demo mode without backend** — `authService` now detects demo credentials and bypasses the API
-5. **Hardcoded copyright year** — Dynamic `new Date().getFullYear()` in HomePage/Footer
-6. **`WalletSummary` trend color** — Expenses "down" is now correctly contextual (not always red)
-7. **`TransactionList` missing navigation** — "View all" button now routes to `/wallet/transactions`
-8. **Dashboard quick actions** — All buttons now navigate to correct routes
-9. **`validateToken` rejected** — Logout path always clears state even when rejected
-10. **System theme media query listener** — Added listener cleanup for system theme preference changes
-11. **`rootElement` null guard** — `main.tsx` now throws clearly if `#root` is missing
-12. **Token expiry buffer** — Token considered expired 5 min before actual expiry
+1. **Missing `/forgot-password` route** - Added `ForgotPasswordScreen` and route in `AppInner.tsx`
+2. **Checkbox + react-hook-form** - Replaced `{...register()}` with `<Controller>` for Radix-based checkboxes in Login & Register
+3. **SendMoney amount coercion** - Changed `z.number()` to `z.coerce.number()` so string HTML input values parse correctly
+4. **Demo mode without backend** - `authService` now detects demo credentials and bypasses the API
+5. **Hardcoded copyright year** - Dynamic `new Date().getFullYear()` in HomePage/Footer
+6. **`WalletSummary` trend color** - Expenses "down" is now correctly contextual (not always red)
+7. **`TransactionList` missing navigation** - "View all" button now routes to `/wallet/transactions`
+8. **Dashboard quick actions** - All buttons now navigate to correct routes
+9. **`validateToken` rejected** - Logout path always clears state even when rejected
+10. **System theme media query listener** - Added listener cleanup for system theme preference changes
+11. **`rootElement` null guard** - `main.tsx` now throws clearly if `#root` is missing
+12. **Token expiry buffer** - Token considered expired 5 min before actual expiry
 
 ## Architecture Decisions
 
-- **Feature-based structure** — Components organized by domain, not by type
-- **Absolute imports** — All imports use `@/` alias for clarity
-- **Demo mode** — Full UI works without a backend using demo credentials
-- **Optimistic UI** — Forms show immediate feedback without waiting for API
-- **CSS custom properties** — Design tokens in `globals.css` enable consistent theming
+- **Feature-based structure** - Components organized by domain, not by type
+- **Absolute imports** - All imports use `@/` alias for clarity
+- **Demo mode** - Full UI works without a backend using demo credentials
+- **Optimistic UI** - Forms show immediate feedback without waiting for API
+- **CSS custom properties** - Design tokens in `globals.css` enable consistent theming

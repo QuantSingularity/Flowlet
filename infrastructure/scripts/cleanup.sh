@@ -26,7 +26,7 @@ delete_k8s_file() {
         kubectl delete -f "$file" --ignore-not-found=true --timeout=120s || true
         echo "✅ Processed $file"
     else
-        echo "⚠️  $file not found — skipping"
+        echo "⚠️  $file not found - skipping"
     fi
 }
 
@@ -49,7 +49,7 @@ if command -v istioctl &> /dev/null; then
         kubectl label namespace "$ns" istio-injection- 2>/dev/null || true
     done
 else
-    echo "⚠️  istioctl not found — skipping Istio removal"
+    echo "⚠️  istioctl not found - skipping Istio removal"
 fi
 
 echo "📈 Removing autoscaling..."

@@ -49,7 +49,7 @@ const ALERTS: FraudAlert[] = [
     severity: "high",
     title: "Unusual Transaction Pattern",
     description:
-      "Multiple small transactions detected within 10 minutes — possible card testing",
+      "Multiple small transactions detected within 10 minutes - possible card testing",
     amount: 4.99,
     time: "2 hours ago",
     status: "pending",

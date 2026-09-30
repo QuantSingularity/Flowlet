@@ -172,10 +172,10 @@ const SettingsScreen: React.FC = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">USD — US Dollar</SelectItem>
-                    <SelectItem value="EUR">EUR — Euro</SelectItem>
-                    <SelectItem value="GBP">GBP — British Pound</SelectItem>
-                    <SelectItem value="AED">AED — UAE Dirham</SelectItem>
+                    <SelectItem value="USD">USD - US Dollar</SelectItem>
+                    <SelectItem value="EUR">EUR - Euro</SelectItem>
+                    <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                    <SelectItem value="AED">AED - UAE Dirham</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -330,7 +330,7 @@ const SettingsScreen: React.FC = () => {
                   Danger Zone
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Irreversible actions — proceed with caution
+                  Irreversible actions - proceed with caution
                 </CardDescription>
               </CardHeader>
               <CardContent>

@@ -1,5 +1,5 @@
 """
-KYC (Know Your Customer) routes — delegates to the full compliance KYC service.
+KYC (Know Your Customer) routes - delegates to the full compliance KYC service.
 """
 
 import logging
@@ -74,7 +74,7 @@ def submit_kyc() -> Any:
 @kyc_bp.route("/verify", methods=["POST"])
 @token_required
 def verify_kyc() -> Any:
-    """Legacy verify endpoint — forwards to submit."""
+    """Legacy verify endpoint - forwards to submit."""
     return submit_kyc()
 
 

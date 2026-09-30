@@ -49,7 +49,7 @@ Object.defineProperty(window, "matchMedia", {
   }),
 });
 
-// Mock navigator.clipboard — configurable so @testing-library/user-event can stub it
+// Mock navigator.clipboard - configurable so @testing-library/user-event can stub it
 Object.defineProperty(navigator, "clipboard", {
   value: {
     writeText: vi.fn().mockResolvedValue(undefined),
@@ -59,7 +59,7 @@ Object.defineProperty(navigator, "clipboard", {
   configurable: true,
 });
 
-// Mock ResizeObserver — required by @radix-ui/react-use-size (Select, Popover etc.)
+// Mock ResizeObserver - required by @radix-ui/react-use-size (Select, Popover etc.)
 globalThis.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}

@@ -1,5 +1,5 @@
 // ============================================================================
-// authService — integrates with Flowlet Flask backend
+// authService - integrates with Flowlet Flask backend
 // Falls back to demo mode when backend is unreachable
 // ============================================================================
 import { apiClient, TokenManager } from "./client";

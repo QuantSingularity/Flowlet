@@ -137,7 +137,7 @@ function generateComplianceChecks() {
     {
       label: "IP Allowlist",
       status: "warn",
-      detail: "Not configured — consider enabling",
+      detail: "Not configured - consider enabling",
     },
     {
       label: "API Key Rotation",

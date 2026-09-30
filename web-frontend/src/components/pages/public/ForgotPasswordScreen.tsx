@@ -36,7 +36,7 @@ const ForgotPasswordScreen: React.FC = () => {
       await authService.requestPasswordReset(data.email);
       setSubmitted(true);
     } catch (error: unknown) {
-      // Don't reveal whether email exists — show success regardless
+      // Don't reveal whether email exists - show success regardless
       setSubmitted(true);
       toast.info("If that email is registered, we've sent a reset link.");
     } finally {
