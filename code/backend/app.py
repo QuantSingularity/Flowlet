@@ -73,16 +73,39 @@ def create_app(config_name: Optional[str] = None) -> Flask:
 
     app.register_blueprint(api_bp)
 
+    if not app.config.get("TESTING"):
+        from src.services.ml_gateway import warm_up_models
+
+        warm_up_models()
+
     @app.route("/health")
     def health_check() -> Any:
         """Health check endpoint."""
-        return jsonify(
-            {
-                "status": "healthy",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "version": "1.0.0",
-                "services": {"database": "ok", "api": "ok"},
-            }
+        from sqlalchemy import text
+        from src.services.ml_gateway import get_ml, ml_enabled
+
+        database = "ok"
+        try:
+            db.session.execute(text("SELECT 1"))
+        except Exception:
+            database = "error"
+        ml_status = "disabled"
+        if ml_enabled():
+            try:
+                ml_status = get_ml().health()["status"]
+            except Exception:
+                ml_status = "error"
+        overall = "healthy" if database == "ok" else "unhealthy"
+        return (
+            jsonify(
+                {
+                    "status": overall,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "version": "2.0.0",
+                    "services": {"database": database, "api": "ok", "ml": ml_status},
+                }
+            ),
+            200 if overall == "healthy" else 503,
         )
 
     @app.route("/api/v1/info")
@@ -103,6 +126,7 @@ def create_app(config_name: Optional[str] = None) -> Flask:
                     "/api/v1/analytics",
                     "/api/v1/compliance",
                     "/api/v1/fraud",
+                    "/api/v1/ai",
                     "/api/v1/kyc",
                 ],
                 "security_features": [
@@ -135,6 +159,7 @@ def create_app(config_name: Optional[str] = None) -> Flask:
                     "/api/v1/analytics",
                     "/api/v1/compliance",
                     "/api/v1/fraud",
+                    "/api/v1/ai",
                     "/api/v1/kyc",
                     "/api/v1/currency",
                 ],

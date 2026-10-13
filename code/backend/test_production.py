@@ -29,7 +29,7 @@ class FlowletProductionTester:
     def log_test(
         self, test_name: Any, success: Any, message: Any = "", data: Any = None
     ) -> Any:
-        status = "✅ PASS" if success else "❌ FAIL"
+        status = "PASS" if success else "FAIL"
         logger.info(f"{status} {test_name}: {message}")
         self.test_results.append(
             {
@@ -66,7 +66,7 @@ class FlowletProductionTester:
             return None
 
     def test_health_and_info(self) -> Any:
-        logger.info("\n🏥 Testing Health and API Information...")
+        logger.info("\nTesting Health and API Information...")
         try:
             response = requests.get(f"{BASE_URL}/health", timeout=10)
             if response.status_code == 200:
@@ -93,7 +93,7 @@ class FlowletProductionTester:
         return True
 
     def test_user_registration(self) -> Any:
-        logger.info("\n👤 Testing User Registration...")
+        logger.info("\nTesting User Registration...")
         test_email = f"test_{uuid.uuid4().hex[:8]}@flowlet.com"
         registration_data = {
             "email": test_email,
@@ -130,7 +130,7 @@ class FlowletProductionTester:
             return False
 
     def test_user_login(self) -> Any:
-        logger.info("\n🔐 Testing User Authentication...")
+        logger.info("\nTesting User Authentication...")
         if not self.test_user_id:
             self.log_test("User Login", False, "No test user available")
             return False
@@ -147,7 +147,7 @@ class FlowletProductionTester:
             return False
 
     def test_account_creation(self) -> Any:
-        logger.info("\n🏦 Testing Account Management...")
+        logger.info("\nTesting Account Management...")
         account_data = {
             "account_name": "Test Checking Account",
             "account_type": "checking",
@@ -179,7 +179,7 @@ class FlowletProductionTester:
             return None
 
     def test_balance_operations(self, account_id: Any) -> Any:
-        logger.info("\n💰 Testing Balance Operations...")
+        logger.info("\nTesting Balance Operations...")
         if not account_id:
             self.log_test("Balance Operations", False, "No account ID provided")
             return False
@@ -260,7 +260,7 @@ class FlowletProductionTester:
         return True
 
     def test_transfers(self) -> Any:
-        logger.info("\n💸 Testing Fund Transfers...")
+        logger.info("\nTesting Fund Transfers...")
         if len(self.test_accounts) < 2:
             second_account_data = {
                 "account_name": "Test Savings Account",
@@ -313,7 +313,7 @@ class FlowletProductionTester:
         return True
 
     def test_transaction_history(self) -> Any:
-        logger.info("\n📊 Testing Transaction History...")
+        logger.info("\nTesting Transaction History...")
         if not self.test_accounts:
             self.log_test("Transaction History", False, "No test accounts available")
             return False
@@ -342,7 +342,7 @@ class FlowletProductionTester:
             return False
 
     def test_error_handling(self) -> Any:
-        logger.info("\n🛡️ Testing Error Handling...")
+        logger.info("\nTesting Error Handling...")
         response = self.make_request("GET", "/accounts/invalid-account-id/balance")
         if response and response.status_code == 404:
             self.log_test("Invalid Account Error", True, "Correctly returned 404")
@@ -417,7 +417,7 @@ class FlowletProductionTester:
         return True
 
     def test_security_features(self) -> Any:
-        logger.info("\n🔒 Testing Security Features...")
+        logger.info("\nTesting Security Features...")
         response = requests.get(f"{BASE_URL}/health", timeout=10)
         if response:
             headers = response.headers
@@ -445,20 +445,20 @@ class FlowletProductionTester:
         return True
 
     def run_comprehensive_test_suite(self) -> Any:
-        logger.info("🚀 Starting Flowlet Production Test Suite")
+        logger.info("Starting Flowlet Production Test Suite")
         logger.info("=" * 70)
         logger.info("Testing enterprise-grade financial backend implementation")
         logger.info("=" * 70)
         logger.info("\n⏳ Waiting for server to be ready...")
         time.sleep(3)
         if not self.test_health_and_info():
-            logger.info("❌ Basic connectivity failed. Cannot continue.")
+            logger.info("Basic connectivity failed. Cannot continue.")
             return False
         if not self.test_user_registration():
-            logger.info("❌ User registration failed. Cannot continue.")
+            logger.info("User registration failed. Cannot continue.")
             return False
         if not self.test_user_login():
-            logger.info("❌ Authentication failed. Cannot continue.")
+            logger.info("Authentication failed. Cannot continue.")
             return False
         account_id = self.test_account_creation()
         if account_id:
@@ -467,33 +467,33 @@ class FlowletProductionTester:
             self.test_transaction_history()
         self.test_error_handling()
         self.test_security_features()
-        logger.info("\n📊 Production Test Results Summary")
+        logger.info("\nProduction Test Results Summary")
         logger.info("=" * 70)
         total_tests = len(self.test_results)
         passed_tests = sum((1 for result in self.test_results if result["success"]))
         failed_tests = total_tests - passed_tests
         logger.info(f"Total Tests Executed: {total_tests}")
-        logger.info(f"Passed: {passed_tests} ✅")
-        logger.info(f"Failed: {failed_tests} ❌")
+        logger.info(f"Passed: {passed_tests}")
+        logger.info(f"Failed: {failed_tests}")
         logger.info(f"Success Rate: {passed_tests / total_tests * 100:.1f}%")
         if failed_tests > 0:
-            logger.info("\n❌ Failed Tests:")
+            logger.info("\nFailed Tests:")
             for result in self.test_results:
                 if not result["success"]:
                     logger.info(f"   - {result['test']}: {result['message']}")
-        logger.info("\n📈 Test Artifacts Created:")
+        logger.info("\nTest Artifacts Created:")
         logger.info(f"   - User ID: {self.test_user_id}")
         logger.info(f"   - Accounts: {len(self.test_accounts)}")
         logger.info(f"   - Transactions: {len(self.test_transactions)}")
-        logger.info("\n🏆 Production Readiness Assessment:")
+        logger.info("\nProduction Readiness Assessment:")
         if passed_tests / total_tests >= 0.95:
-            logger.info("   ✅ EXCELLENT - Ready for production deployment")
+            logger.info(" EXCELLENT - Ready for production deployment")
         elif passed_tests / total_tests >= 0.9:
-            logger.info("   ✅ GOOD - Ready for production with minor fixes")
+            logger.info(" GOOD - Ready for production with minor fixes")
         elif passed_tests / total_tests >= 0.8:
-            logger.info("   ⚠️ FAIR - Needs improvements before production")
+            logger.info(" FAIR - Needs improvements before production")
         else:
-            logger.info("   ❌ POOR - Significant issues need resolution")
+            logger.info(" POOR - Significant issues need resolution")
         return failed_tests == 0
 
 
@@ -504,13 +504,11 @@ def main() -> Any:
     tester = FlowletProductionTester()
     success = tester.run_comprehensive_test_suite()
     if success:
-        logger.info(
-            "\n🎉 All tests passed! Production backend is ready for deployment."
-        )
+        logger.info("\nAll tests passed! Production backend is ready for deployment.")
         sys.exit(0)
     else:
         logger.info(
-            "\n⚠️ Some tests failed. Please review and fix issues before production."
+            "\nSome tests failed. Please review and fix issues before production."
         )
         sys.exit(1)
 

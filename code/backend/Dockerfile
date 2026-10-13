@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY backend/requirements.txt ./requirements.txt
 RUN pip install --upgrade pip && \
     pip install --prefix=/install --no-cache-dir -r requirements.txt
 
@@ -31,11 +31,12 @@ COPY --from=builder /install /usr/local
 RUN groupadd -r appgroup && useradd -r -g appgroup -d /app appuser
 
 # Copy application code
-COPY --chown=appuser:appgroup . .
+COPY --chown=appuser:appgroup backend/ .
+COPY --chown=appuser:appgroup ml_services ./ml_services
 
 # Create required directories
-RUN mkdir -p /app/database /app/logs && \
-    chown -R appuser:appgroup /app/database /app/logs
+RUN mkdir -p /app/database /app/logs /app/ml_models && \
+    chown -R appuser:appgroup /app/database /app/logs /app/ml_models
 
 USER appuser
 
@@ -44,7 +45,8 @@ ENV FLASK_CONFIG=production \
     FLASK_ENV=production \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=5000
+    PORT=5000 \
+    ML_MODEL_DIR=/app/ml_models
 
 EXPOSE 5000
 

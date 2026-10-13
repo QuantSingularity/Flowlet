@@ -5,10 +5,19 @@ from functools import wraps
 from typing import Any
 
 import jwt
-from flask import g, jsonify, request
+from flask import current_app, g, jsonify, request
 
 from ..models.database import db
 from ..models.user import User
+
+
+def _jwt_secret() -> str:
+    secret = os.environ.get("JWT_SECRET_KEY") or current_app.config.get(
+        "JWT_SECRET_KEY"
+    )
+    if not secret:
+        raise RuntimeError("JWT secret is not configured")
+    return str(secret)
 
 
 def token_required(f: Any) -> object:
@@ -23,7 +32,7 @@ def token_required(f: Any) -> object:
         try:
             if token.startswith("Bearer "):
                 token = token[7:]
-            secret = os.environ.get("JWT_SECRET_KEY", "secret")
+            secret = _jwt_secret()
             payload = jwt.decode(token, secret, algorithms=["HS256"])
             current_user = db.session.get(User, payload.get("user_id"))
             if not current_user:
@@ -55,7 +64,7 @@ def admin_required(f: Any) -> object:
         try:
             if token.startswith("Bearer "):
                 token = token[7:]
-            secret = os.environ.get("JWT_SECRET_KEY", "secret")
+            secret = _jwt_secret()
             payload = jwt.decode(token, secret, algorithms=["HS256"])
             current_user = db.session.get(User, payload.get("user_id"))
             if not current_user:

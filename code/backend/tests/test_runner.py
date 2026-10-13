@@ -26,7 +26,7 @@ def test_security_modules() -> None:
     password = "TestPassword123!"
     hashed = PasswordSecurity.hash_password(password)
     assert PasswordSecurity.verify_password(password, hashed)
-    logger.info("✓ Password security tests passed")
+    logger.info("Password security tests passed")
     from decimal import Decimal
 
     from src.security.input_validator import InputValidator, ValidationError
@@ -42,7 +42,7 @@ def test_security_modules() -> None:
         assert False, "Should have raised ValidationError"
     except ValidationError:
         pass
-    logger.info("✓ Input validation tests passed")
+    logger.info("Input validation tests passed")
     from src.security.encryption_manager import EncryptionManager
 
     encryption_manager = EncryptionManager()
@@ -51,7 +51,7 @@ def test_security_modules() -> None:
     decrypted_data = encryption_manager.decrypt_field(encrypted_data)
     assert encrypted_data != original_data
     assert decrypted_data == original_data
-    logger.info("✓ Encryption tests passed")
+    logger.info("Encryption tests passed")
 
 
 def test_financial_calculations() -> None:
@@ -66,7 +66,7 @@ def test_financial_calculations() -> None:
     amount = Decimal("123.456")
     rounded = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     assert rounded == Decimal("123.46")
-    logger.info("✓ Financial calculation tests passed")
+    logger.info("Financial calculation tests passed")
 
 
 def test_compliance_features() -> None:
@@ -90,7 +90,7 @@ def test_compliance_features() -> None:
     assert luhn_check(valid_card)
     invalid_card = "1234567890123456"
     assert not luhn_check(invalid_card)
-    logger.info("✓ Compliance feature tests passed")
+    logger.info("Compliance feature tests passed")
 
 
 def run_all_tests() -> None:
@@ -102,13 +102,13 @@ def run_all_tests() -> None:
         test_financial_calculations()
         test_compliance_features()
         logger.info("=" * 50)
-        logger.info("✅ All tests passed successfully!")
-        logger.info("✅ Financial industry standards implemented correctly")
-        logger.info("✅ Security features working as expected")
-        logger.info("✅ Compliance features validated")
+        logger.info("All tests passed successfully!")
+        logger.info("Financial industry standards implemented correctly")
+        logger.info("Security features working as expected")
+        logger.info("Compliance features validated")
         return True
     except Exception as e:
-        logger.info(f"❌ Test failed: {str(e)}")
+        logger.info(f"Test failed: {str(e)}")
         return False
 
 

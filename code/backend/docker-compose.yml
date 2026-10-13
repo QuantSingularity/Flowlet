@@ -4,8 +4,8 @@ services:
   # ── Backend API ──────────────────────────────────────────────────────────────
   backend:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
       target: runtime
     container_name: flowlet_backend
     restart: unless-stopped
@@ -28,9 +28,18 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       FRAUD_DETECTION_ENABLED: ${FRAUD_DETECTION_ENABLED:-true}
+      ML_ENABLED: ${ML_ENABLED:-true}
+      ML_MODEL_DIR: /app/ml_models
+      ML_ARTIFACT_SIGNING_KEY: ${ML_ARTIFACT_SIGNING_KEY:-}
+      ML_BOOTSTRAP_ON_START: ${ML_BOOTSTRAP_ON_START:-false}
+      ML_FAIL_OPEN: ${ML_FAIL_OPEN:-true}
+      ML_BLOCK_IN_PAYMENTS: ${ML_BLOCK_IN_PAYMENTS:-true}
+      ML_REDIS_URL: redis://redis:6379/1
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-gpt-4o-mini}
       KYC_VERIFICATION_REQUIRED: ${KYC_VERIFICATION_REQUIRED:-true}
     volumes:
       - backend_logs:/app/logs
+      - ml_models:/app/ml_models
     depends_on:
       db:
         condition: service_healthy
@@ -108,8 +117,8 @@ services:
   # ── Celery Worker ────────────────────────────────────────────────────────────
   worker:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
       target: runtime
     container_name: flowlet_worker
     restart: unless-stopped
@@ -143,8 +152,8 @@ services:
   # ── DB Migration / Init ──────────────────────────────────────────────────────
   migrate:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
       target: runtime
     container_name: flowlet_migrate
     command: ["flask", "db", "upgrade"]
@@ -168,6 +177,8 @@ volumes:
   redis_data:
     driver: local
   backend_logs:
+    driver: local
+  ml_models:
     driver: local
 
 networks:

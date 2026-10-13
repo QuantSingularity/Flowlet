@@ -21,6 +21,7 @@ from ..schemas import (
     ProcessPaymentRequest,
     SendPaymentRequest,
 )
+from .ml_gateway import screen_payment
 from .payment_service_errors import (
     AccountAccessDenied,
     CurrencyMismatch,
@@ -68,6 +69,14 @@ def process_external_payment(
     if not account or account.user_id != user_id:
         raise AccountAccessDenied()
     check_account_status(account)
+    screen_payment(
+        session,
+        str(user_id),
+        data.amount,
+        data.currency,
+        channel=str(data.payment_method).lower(),
+        description=data.description,
+    )
     if data.payment_method.lower() == "stripe":
         try:
             stripe_result = stripe_client.create_charge(
@@ -149,6 +158,14 @@ def process_internal_transfer(
     if from_account.currency != to_account.currency:
         raise CurrencyMismatch()
     check_funds_and_limits(from_account, data.amount)
+    screen_payment(
+        session,
+        str(from_account.user_id),
+        data.amount,
+        from_account.currency,
+        channel="internal_transfer",
+        description=data.description,
+    )
     transfer_reference = (
         data.reference
         or f"TRF-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{str(uuid.uuid4())[:8]}"

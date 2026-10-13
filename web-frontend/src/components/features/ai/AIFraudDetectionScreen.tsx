@@ -1,36 +1,25 @@
 import {
   Activity,
   AlertTriangle,
-  BarChart3,
-  CheckCircle,
-  Clock,
-  Eye,
-  Filter,
   RefreshCw,
   Shield,
   TrendingDown,
   TrendingUp,
-  XCircle,
   Zap,
 } from "lucide-react";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
-  Line,
-  LineChart,
-  PieChart,
   Pie,
-  RadarChart,
-  Radar,
-  PolarGrid,
+  PieChart,
   PolarAngleAxis,
+  PolarGrid,
   PolarRadiusAxis,
+  Radar,
+  RadarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -45,6 +34,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -53,727 +43,610 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { describeError, useAsyncData } from "@/hooks/useAsyncData";
+import {
+  mlService,
+  type FraudAnalysis,
+  type RiskLevel,
+} from "@/lib/api/mlService";
 
-// ── Deterministic data helpers ──────────────────────────────────────────────
-
-function seededRng(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s / 0xffffffff;
-  };
-}
-
-function generateHourlyDetections() {
-  const rng = seededRng(42);
-  return Array.from({ length: 24 }, (_, h) => ({
-    hour: `${String(h).padStart(2, "0")}:00`,
-    blocked: Math.floor(rng() * 12 + 1),
-    reviewed: Math.floor(rng() * 8 + 1),
-    cleared: Math.floor(rng() * 40 + 20),
-  }));
-}
-
-function generateDailyTrend() {
-  const rng = seededRng(99);
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  return days.map((d) => ({
-    day: d,
-    fraudRate: parseFloat((rng() * 1.4 + 0.2).toFixed(2)),
-    volume: Math.floor(rng() * 8000 + 2000),
-  }));
-}
-
-function generateModelMetrics() {
-  return [
-    {
-      model: "Random Forest",
-      auc: 0.974,
-      precision: 0.961,
-      recall: 0.948,
-      f1: 0.954,
-      latency: 4,
-    },
-    {
-      model: "XGBoost",
-      auc: 0.981,
-      precision: 0.967,
-      recall: 0.953,
-      f1: 0.96,
-      latency: 3,
-    },
-    {
-      model: "LightGBM",
-      auc: 0.978,
-      precision: 0.963,
-      recall: 0.95,
-      f1: 0.956,
-      latency: 2,
-    },
-    {
-      model: "Neural Network",
-      auc: 0.969,
-      precision: 0.944,
-      recall: 0.937,
-      f1: 0.94,
-      latency: 18,
-    },
-    {
-      model: "Ensemble",
-      auc: 0.987,
-      precision: 0.973,
-      recall: 0.961,
-      f1: 0.967,
-      latency: 8,
-    },
-  ];
-}
-
-function generateRecentAlerts() {
-  const rng = seededRng(77);
-  const types = [
-    "Velocity Spike",
-    "Geo Anomaly",
-    "Card Not Present",
-    "Night-time Auth",
-    "Device Change",
-    "High-Value Transfer",
-  ];
-  const statuses = ["blocked", "reviewed", "cleared"] as const;
-  const tickers = ["AAPL-4829", "VISA-3901", "MC-7812", "AMEX-6011"];
-  return Array.from({ length: 12 }, (_, i) => ({
-    id: `ALT-${String(i + 1).padStart(4, "0")}`,
-    type: types[Math.floor(rng() * types.length)],
-    amount: parseFloat((rng() * 4800 + 50).toFixed(2)),
-    status: statuses[Math.floor(rng() * statuses.length)],
-    riskScore: Math.floor(rng() * 35 + 65),
-    card: tickers[Math.floor(rng() * tickers.length)],
-    time: `${String(Math.floor(rng() * 23)).padStart(2, "0")}:${String(Math.floor(rng() * 59)).padStart(2, "0")}`,
-  }));
-}
-
-function generateRiskRadar() {
-  return [
-    { subject: "Velocity", score: 72 },
-    { subject: "Geo Risk", score: 38 },
-    { subject: "Device Trust", score: 85 },
-    { subject: "Behaviour", score: 61 },
-    { subject: "Merchant Risk", score: 44 },
-    { subject: "Time Pattern", score: 57 },
-  ];
-}
-
-function generateConfusionMatrix() {
-  return { tp: 2847, fp: 82, fn: 118, tn: 97953 };
-}
-
-// ── Sub-components ──────────────────────────────────────────────────────────
-
-const STATUS_BADGE: Record<string, React.ReactElement> = {
-  blocked: (
-    <Badge className="bg-red-100 text-red-700 border-red-200">Blocked</Badge>
-  ),
-  reviewed: (
-    <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">
-      Review
-    </Badge>
-  ),
-  cleared: (
-    <Badge className="bg-green-100 text-green-700 border-green-200">
-      Cleared
-    </Badge>
-  ),
+const LEVEL_COLORS: Record<RiskLevel, string> = {
+  low: "#10b981",
+  medium: "#f59e0b",
+  high: "#f97316",
+  critical: "#ef4444",
 };
+
+const CATEGORY_OPTIONS = [
+  "grocery",
+  "restaurant",
+  "retail",
+  "travel",
+  "utilities",
+  "gambling",
+  "cryptocurrency",
+  "wire_transfer",
+  "cash_advance",
+];
+
+const money = (value: number) =>
+  value.toLocaleString(undefined, { style: "currency", currency: "USD" });
+
+const label = (key: string) => key.replace(/_/g, " ");
 
 function KpiCard({
   title,
   value,
-  sub,
+  hint,
   icon: Icon,
   trend,
-  color = "text-gray-900",
 }: {
   title: string;
   value: string;
-  sub: string;
+  hint?: string;
   icon: React.ElementType;
-  trend?: "up" | "down" | "neutral";
-  color?: string;
+  trend?: "up" | "down";
 }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-gray-500">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className={`text-2xl font-bold ${color}`}>{value}</div>
-        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-          {trend === "up" && <TrendingUp className="h-3 w-3 text-green-500" />}
-          {trend === "down" && (
-            <TrendingDown className="h-3 w-3 text-red-500" />
-          )}
-          {sub}
-        </p>
+        <p className="text-2xl font-bold tabular-nums">{value}</p>
+        {hint && (
+          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+            {trend === "up" && (
+              <TrendingUp className="h-3 w-3 text-amber-500" />
+            )}
+            {trend === "down" && (
+              <TrendingDown className="h-3 w-3 text-emerald-500" />
+            )}
+            {hint}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-// ── Main component ──────────────────────────────────────────────────────────
+function ErrorPanel({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="py-8 text-center space-y-3">
+        <p className="text-sm text-destructive">{message}</p>
+        <Button size="sm" variant="outline" onClick={onRetry}>
+          Try again
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
-export default function AIFraudDetectionScreen() {
-  const [timeRange, setTimeRange] = useState("24h");
-  const [modelFilter, setModelFilter] = useState("ensemble");
+function Loading() {
+  return (
+    <p className="text-sm text-muted-foreground py-8 text-center">Loading...</p>
+  );
+}
 
-  const hourly = useMemo(() => generateHourlyDetections(), []);
-  const daily = useMemo(() => generateDailyTrend(), []);
-  const models = useMemo(() => generateModelMetrics(), []);
-  const alerts = useMemo(() => generateRecentAlerts(), []);
-  const radar = useMemo(() => generateRiskRadar(), []);
-  const cm = useMemo(() => generateConfusionMatrix(), []);
+function ScreeningPanel() {
+  const [amount, setAmount] = useState("250");
+  const [category, setCategory] = useState("retail");
+  const [country, setCountry] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<FraudAnalysis | null>(null);
 
-  const precision = ((cm.tp / (cm.tp + cm.fp)) * 100).toFixed(1);
-  const recall = ((cm.tp / (cm.tp + cm.fn)) * 100).toFixed(1);
-  const f1 = (((2 * cm.tp) / (2 * cm.tp + cm.fp + cm.fn)) * 100).toFixed(1);
+  const submit = async () => {
+    const parsed = Number(amount);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      toast.error("Enter a positive amount");
+      return;
+    }
+    setBusy(true);
+    try {
+      const analysis = await mlService.screenTransaction({
+        amount: parsed,
+        merchant_info: {
+          category,
+          location: country.trim().toUpperCase() || undefined,
+        },
+      });
+      setResult(analysis);
+    } catch (err) {
+      toast.error(describeError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const outcome = result?.fraud_analysis;
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Screen a transaction</CardTitle>
+          <CardDescription>
+            Scores the transaction against your history. Flagged results are
+            logged as alerts.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium" htmlFor="screen-amount">
+              Amount (USD)
+            </label>
+            <Input
+              id="screen-amount"
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">Merchant category</label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORY_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {label(option)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium" htmlFor="screen-country">
+              Country code (optional)
+            </label>
+            <Input
+              id="screen-country"
+              maxLength={2}
+              placeholder="US"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+            />
+          </div>
+          <Button
+            onClick={() => void submit()}
+            disabled={busy}
+            className="w-full gap-2"
+          >
+            <Zap className="h-4 w-4" />
+            {busy ? "Scoring..." : "Run fraud check"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Result</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!outcome && (
+            <p className="text-sm text-muted-foreground">
+              Run a check to see the decision.
+            </p>
+          )}
+          {outcome && result && (
+            <>
+              <div className="flex items-center gap-3">
+                <p className="text-3xl font-bold tabular-nums">
+                  {Math.round(outcome.risk_score)}
+                </p>
+                <Badge
+                  style={{
+                    backgroundColor: LEVEL_COLORS[outcome.risk_level],
+                    color: "white",
+                  }}
+                >
+                  {outcome.risk_level}
+                </Badge>
+                <Badge variant="outline">
+                  {label(outcome.recommended_action)}
+                </Badge>
+              </div>
+              <p className="text-sm">{outcome.explanation.summary}</p>
+              {outcome.explanation.rule_hits.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold mb-1">Rules triggered</p>
+                  <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+                    {outcome.explanation.rule_hits.map((hit) => (
+                      <li key={hit.name}>{hit.description}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {outcome.explanation.primary_risk_factors.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold mb-1">Model factors</p>
+                  <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+                    {outcome.explanation.primary_risk_factors.map((factor) => (
+                      <li key={factor.feature}>{factor.description}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Confidence {Math.round(outcome.confidence)}% - mode{" "}
+                {result.mode === "model" ? "ML ensemble" : "rules only"}
+                {result.alert_created ? " - alert logged" : ""}
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function RiskPanel() {
+  const { data, loading, error, reload } = useAsyncData(
+    () => mlService.assessRisk(),
+    [],
+  );
+  if (loading && !data) return <Loading />;
+  if (error)
+    return <ErrorPanel message={error} onRetry={() => void reload()} />;
+  const assessment = data?.assessment;
+  if (!assessment) return null;
+  const radar = Object.entries(assessment.category_scores).map(
+    ([name, score]) => ({
+      category: label(name.replace("_risk", "")),
+      score: Math.round(score * 100),
+    }),
+  );
+  const factors = [...assessment.risk_factors]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Risk profile</CardTitle>
+          <CardDescription>
+            Overall {Math.round(assessment.overall_risk_score * 100)} (
+            {label(assessment.overall_risk_level)}), confidence{" "}
+            {Math.round(assessment.confidence_score * 100)}%
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart data={radar}>
+              <PolarGrid />
+              <PolarAngleAxis dataKey="category" tick={{ fontSize: 11 }} />
+              <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+              <Radar
+                dataKey="score"
+                stroke="#6366f1"
+                fill="#6366f1"
+                fillOpacity={0.35}
+              />
+              <Tooltip />
+            </RadarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Top factors</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {factors.map((factor) => (
+              <div key={factor.factor_name}>
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium">
+                    {label(factor.factor_name)}
+                  </span>
+                  <span className="tabular-nums">
+                    {Math.round(factor.score * 100)}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded bg-muted mt-1">
+                  <div
+                    className="h-1.5 rounded bg-primary"
+                    style={{ width: `${Math.round(factor.score * 100)}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {factor.description}
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recommendations</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="text-sm list-disc pl-4 space-y-1">
+              {assessment.recommendations.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            {assessment.monitoring_alerts.length > 0 && (
+              <div className="mt-3 flex items-start gap-2 text-xs text-amber-600">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5" />
+                <span>{assessment.monitoring_alerts.join("; ")}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function SpendingPanel() {
+  const { data, loading, error, reload } = useAsyncData(
+    () => mlService.spendingAnalysis(90),
+    [],
+  );
+  if (loading && !data) return <Loading />;
+  if (error)
+    return <ErrorPanel message={error} onRetry={() => void reload()} />;
+  const analysis = data?.analysis;
+  if (!analysis) return null;
+  const categories = Object.entries(analysis.category_totals).map(
+    ([name, value]) => ({
+      name: label(name),
+      value: Math.round(value * 100) / 100,
+    }),
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          title="Spent (90 days)"
+          value={money(analysis.total_spent)}
+          icon={Activity}
+        />
+        <KpiCard
+          title="Income"
+          value={money(analysis.total_income)}
+          icon={TrendingUp}
+        />
+        <KpiCard
+          title="Net cash flow"
+          value={money(analysis.net_cash_flow)}
+          icon={Shield}
+          trend={analysis.net_cash_flow < 0 ? "up" : "down"}
+          hint={
+            analysis.net_cash_flow < 0
+              ? "Spending exceeds income"
+              : "Positive cash flow"
+          }
+        />
+        <KpiCard
+          title="30 day forecast"
+          value={
+            analysis.forecast.projected_spend === null
+              ? "Not enough data"
+              : money(analysis.forecast.projected_spend)
+          }
+          icon={Zap}
+          hint={`Pattern: ${analysis.pattern}`}
+        />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Spending by category</CardTitle>
+          </CardHeader>
+          <CardContent className="h-72">
+            {categories.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No spending in this period.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={categories}
+                  layout="vertical"
+                  margin={{ left: 40 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    tick={{ fontSize: 11 }}
+                    width={90}
+                  />
+                  <Tooltip formatter={(v: number) => money(v)} />
+                  <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Insights</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ul className="text-sm list-disc pl-4 space-y-1">
+              {analysis.insights.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+              {analysis.insights.length === 0 && (
+                <li className="list-none text-muted-foreground">
+                  No insights yet.
+                </li>
+              )}
+            </ul>
+            {analysis.recurring.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold mb-1">Recurring payments</p>
+                <ul className="text-xs text-muted-foreground space-y-0.5">
+                  {analysis.recurring.slice(0, 5).map((item) => (
+                    <li key={item.merchant}>
+                      {item.merchant}: {money(item.average_amount)} every{" "}
+                      {item.period_days} days
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {analysis.alerts.map((alert) => (
+              <p
+                key={alert}
+                className="text-xs text-amber-600 flex items-center gap-1.5"
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {alert}
+              </p>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function OperationsPanel() {
+  const { data, loading, error, reload } = useAsyncData(
+    () => mlService.fraudStatistics(24),
+    [],
+  );
+  if (loading && !data) return <Loading />;
+  if (error)
+    return <ErrorPanel message={error} onRetry={() => void reload()} />;
+  const stats = data?.statistics;
+  if (!stats) return null;
+  const distribution = (Object.keys(LEVEL_COLORS) as RiskLevel[]).map(
+    (level) => ({
+      name: level,
+      value: stats.risk_distribution[level] ?? 0,
+    }),
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard
+          title="Scored (24h)"
+          value={String(stats.total_transactions)}
+          icon={Activity}
+        />
+        <KpiCard
+          title="Flagged"
+          value={String(stats.fraud_detected)}
+          icon={AlertTriangle}
+        />
+        <KpiCard
+          title="Average risk score"
+          value={`${Math.round(stats.average_risk_score * 100)}`}
+          icon={Shield}
+          hint={`Flag rate ${(stats.fraud_rate * 100).toFixed(1)}%`}
+        />
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Risk distribution</CardTitle>
+        </CardHeader>
+        <CardContent className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={distribution}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={90}
+                label
+              >
+                {distribution.map((entry) => (
+                  <Cell
+                    key={entry.name}
+                    fill={LEVEL_COLORS[entry.name as RiskLevel]}
+                  />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function AIFraudDetectionScreen() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const health = useAsyncData(() => mlService.health(), []);
+  const mode = health.data?.fraud_detection?.mode;
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">AI Fraud Detection</h1>
-          <p className="text-muted-foreground mt-1">
-            Real-time ML-powered transaction monitoring · Ensemble model active
+          <h1 className="text-2xl font-bold tracking-tight">
+            AI Fraud Detection
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Live risk scoring, spending intelligence and account risk
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-28">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1h">Last 1h</SelectItem>
-              <SelectItem value="24h">Last 24h</SelectItem>
-              <SelectItem value="7d">Last 7d</SelectItem>
-              <SelectItem value="30d">Last 30d</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+        <div className="flex items-center gap-2">
+          {mode && (
+            <Badge variant={mode === "model" ? "default" : "secondary"}>
+              {mode === "model" ? "ML ensemble active" : "Rules only"}
+            </Badge>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => void health.reload()}
+          >
+            <RefreshCw
+              className={cn("h-4 w-4", health.loading && "animate-spin")}
+            />
+            Refresh
           </Button>
         </div>
       </div>
 
-      {/* KPI row */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <KpiCard
-          title="Threats Blocked"
-          value="159"
-          sub="+12% vs yesterday"
-          icon={Shield}
-          trend="up"
-          color="text-red-600"
-        />
-        <KpiCard
-          title="Under Review"
-          value="47"
-          sub="Avg resolution 4.2 min"
-          icon={Eye}
-          trend="neutral"
-          color="text-yellow-600"
-        />
-        <KpiCard
-          title="Transactions Analysed"
-          value="98,234"
-          sub="+8% volume"
-          icon={Activity}
-          trend="up"
-        />
-        <KpiCard
-          title="Detection Accuracy"
-          value="98.7%"
-          sub="Ensemble model (F1 = 0.967)"
-          icon={TrendingUp}
-          trend="up"
-          color="text-green-700"
-        />
-        <KpiCard
-          title="Avg Latency"
-          value="8 ms"
-          sub="p99 = 22 ms"
-          icon={Zap}
-        />
-      </div>
-
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs defaultValue="screening">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="models">ML Models</TabsTrigger>
-          <TabsTrigger value="alerts">Alert Log</TabsTrigger>
-          <TabsTrigger value="risk">Risk Radar</TabsTrigger>
+          <TabsTrigger value="screening">Screening</TabsTrigger>
+          <TabsTrigger value="spending">Spending</TabsTrigger>
+          <TabsTrigger value="risk">Risk Profile</TabsTrigger>
+          {isAdmin && <TabsTrigger value="operations">Operations</TabsTrigger>}
         </TabsList>
-
-        {/* ── Overview ── */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Hourly detections */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600">
-                  Hourly Decision Breakdown
-                </CardTitle>
-                <CardDescription>
-                  Blocked · Under review · Cleared
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={hourly}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="hour" tick={{ fontSize: 9 }} interval={3} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar
-                      dataKey="blocked"
-                      name="Blocked"
-                      stackId="a"
-                      fill="#ef4444"
-                      radius={[0, 0, 0, 0]}
-                    />
-                    <Bar
-                      dataKey="reviewed"
-                      name="Reviewed"
-                      stackId="a"
-                      fill="#f59e0b"
-                    />
-                    <Bar
-                      dataKey="cleared"
-                      name="Cleared"
-                      stackId="a"
-                      fill="#10b981"
-                      radius={[3, 3, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Daily fraud rate trend */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600">
-                  Daily Fraud Rate (%)
-                </CardTitle>
-                <CardDescription>vs. transaction volume</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={260}>
-                  <LineChart data={daily}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" tick={{ fontSize: 12 }} />
-                    <YAxis
-                      yAxisId="left"
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={(v) => `${v}%`}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                    />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="fraudRate"
-                      name="Fraud Rate %"
-                      stroke="#ef4444"
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
-                    />
-                    <Bar
-                      yAxisId="right"
-                      dataKey="volume"
-                      name="Volume"
-                      fill="#e0e7ff"
-                      radius={[2, 2, 0, 0]}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Confusion matrix */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600">
-                Confusion Matrix - Ensemble Model (last 100k transactions)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                {[
-                  {
-                    label: "True Positives",
-                    value: cm.tp.toLocaleString(),
-                    color: "bg-green-50 border-green-200 text-green-800",
-                    sub: "Fraud correctly caught",
-                  },
-                  {
-                    label: "False Positives",
-                    value: cm.fp.toLocaleString(),
-                    color: "bg-orange-50 border-orange-200 text-orange-800",
-                    sub: "Legit flagged as fraud",
-                  },
-                  {
-                    label: "False Negatives",
-                    value: cm.fn.toLocaleString(),
-                    color: "bg-red-50 border-red-200 text-red-800",
-                    sub: "Fraud missed",
-                  },
-                  {
-                    label: "True Negatives",
-                    value: cm.tn.toLocaleString(),
-                    color: "bg-blue-50 border-blue-200 text-blue-800",
-                    sub: "Legit correctly passed",
-                  },
-                ].map((c) => (
-                  <div
-                    key={c.label}
-                    className={`rounded-lg border p-4 text-center ${c.color}`}
-                  >
-                    <p className="text-xs font-medium">{c.label}</p>
-                    <p className="text-2xl font-bold mt-1">{c.value}</p>
-                    <p className="text-xs mt-1 opacity-70">{c.sub}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  {
-                    label: "Precision",
-                    value: `${precision}%`,
-                    hint: "TP / (TP + FP)",
-                  },
-                  {
-                    label: "Recall",
-                    value: `${recall}%`,
-                    hint: "TP / (TP + FN)",
-                  },
-                  {
-                    label: "F1 Score",
-                    value: `${f1}%`,
-                    hint: "Harmonic mean of P & R",
-                  },
-                ].map((m) => (
-                  <div
-                    key={m.label}
-                    className="bg-gray-50 rounded-lg p-3 text-center"
-                  >
-                    <p className="text-xs text-gray-500">{m.label}</p>
-                    <p className="text-xl font-bold text-blue-700">{m.value}</p>
-                    <p className="text-xs text-gray-400">{m.hint}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="screening" className="mt-4">
+          <ScreeningPanel />
         </TabsContent>
-
-        {/* ── ML Models ── */}
-        <TabsContent value="models" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600">
-                Model Performance Comparison
-              </CardTitle>
-              <CardDescription>
-                AUC-ROC, Precision, Recall, F1, and inference latency
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50">
-                    {[
-                      "Model",
-                      "AUC-ROC",
-                      "Precision",
-                      "Recall",
-                      "F1",
-                      "Latency (ms)",
-                      "Status",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {models.map((m) => (
-                    <tr
-                      key={m.model}
-                      className={`hover:bg-gray-50 ${m.model === "Ensemble" ? "font-semibold bg-blue-50" : ""}`}
-                    >
-                      <td className="px-4 py-3">{m.model}</td>
-                      <td className="px-4 py-3 text-blue-700">
-                        {m.auc.toFixed(3)}
-                      </td>
-                      <td className="px-4 py-3">
-                        {(m.precision * 100).toFixed(1)}%
-                      </td>
-                      <td className="px-4 py-3">
-                        {(m.recall * 100).toFixed(1)}%
-                      </td>
-                      <td className="px-4 py-3">{(m.f1 * 100).toFixed(1)}%</td>
-                      <td className="px-4 py-3">{m.latency} ms</td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          className={
-                            m.model === "Ensemble"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-600"
-                          }
-                        >
-                          {m.model === "Ensemble" ? "Active" : "Standby"}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600">
-                AUC-ROC Comparison
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={models} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    domain={[0.95, 1.0]}
-                    tickFormatter={(v) => v.toFixed(3)}
-                    tick={{ fontSize: 11 }}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="model"
-                    width={120}
-                    tick={{ fontSize: 11 }}
-                  />
-                  <Tooltip
-                    formatter={(v) => [Number(v).toFixed(3), "AUC-ROC"]}
-                  />
-                  <Bar dataKey="auc" radius={[0, 4, 4, 0]}>
-                    {models.map((m, i) => (
-                      <Cell
-                        key={i}
-                        fill={m.model === "Ensemble" ? "#2563eb" : "#93c5fd"}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { label: "Detection Rules Active", value: "247", icon: Filter },
-              { label: "Models in Production", value: "5", icon: BarChart3 },
-              { label: "Last Retrain", value: "6 hrs ago", icon: Clock },
-            ].map((s) => (
-              <Card key={s.label}>
-                <CardContent className="pt-6 flex items-center gap-4">
-                  <s.icon className="h-8 w-8 text-blue-500" />
-                  <div>
-                    <p className="text-xs text-gray-500">{s.label}</p>
-                    <p className="text-xl font-bold">{s.value}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        <TabsContent value="spending" className="mt-4">
+          <SpendingPanel />
         </TabsContent>
-
-        {/* ── Alert Log ── */}
-        <TabsContent value="alerts">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600">
-                  Recent Fraud Alerts
-                </CardTitle>
-                <Button variant="outline" size="sm">
-                  <Filter className="h-3 w-3 mr-1" /> Filter
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm divide-y divide-gray-100">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {[
-                        "Alert ID",
-                        "Type",
-                        "Card",
-                        "Amount",
-                        "Risk Score",
-                        "Time",
-                        "Status",
-                        "Action",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
-                    {alerts.map((a) => (
-                      <tr key={a.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2.5 font-mono text-xs text-gray-500">
-                          {a.id}
-                        </td>
-                        <td className="px-4 py-2.5 font-medium">{a.type}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs">
-                          {a.card}
-                        </td>
-                        <td className="px-4 py-2.5">${a.amount.toFixed(2)}</td>
-                        <td className="px-4 py-2.5">
-                          <span
-                            className={`font-semibold ${a.riskScore >= 85 ? "text-red-600" : a.riskScore >= 70 ? "text-yellow-600" : "text-gray-700"}`}
-                          >
-                            {a.riskScore}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-gray-500">{a.time}</td>
-                        <td className="px-4 py-2.5">
-                          {STATUS_BADGE[a.status]}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7"
-                          >
-                            View
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="risk" className="mt-4">
+          <RiskPanel />
         </TabsContent>
-
-        {/* ── Risk Radar ── */}
-        <TabsContent value="risk" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600">
-                  Risk Dimension Radar
-                </CardTitle>
-                <CardDescription>
-                  Current risk scores across 6 signal dimensions (0–100)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <RadarChart data={radar}>
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
-                    <PolarRadiusAxis
-                      angle={90}
-                      domain={[0, 100]}
-                      tick={false}
-                    />
-                    <Radar
-                      name="Risk Score"
-                      dataKey="score"
-                      stroke="#2563eb"
-                      fill="#2563eb"
-                      fillOpacity={0.25}
-                    />
-                    <Tooltip formatter={(v) => [`${v}/100`, "Risk Score"]} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600">
-                  Risk Factor Breakdown
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {radar.map((r) => (
-                    <div key={r.subject}>
-                      <div className="flex justify-between text-xs text-gray-600 mb-1">
-                        <span className="font-medium">{r.subject}</span>
-                        <span
-                          className={
-                            r.score >= 70
-                              ? "text-red-600 font-semibold"
-                              : r.score >= 50
-                                ? "text-yellow-600"
-                                : "text-green-600"
-                          }
-                        >
-                          {r.score}/100
-                        </span>
-                      </div>
-                      <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${r.score}%`,
-                            background:
-                              r.score >= 70
-                                ? "#ef4444"
-                                : r.score >= 50
-                                  ? "#f59e0b"
-                                  : "#10b981",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400 mt-4">
-                  🟢 Low (&lt;50) · 🟡 Medium (50–70) · 🔴 High (&gt;70). Scores
-                  updated in real-time by the ensemble model.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="operations" className="mt-4">
+            <OperationsPanel />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

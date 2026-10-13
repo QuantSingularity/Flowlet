@@ -1,113 +1,127 @@
 # Flowlet ML Services
 
-## Overview
+Machine learning services used by the Flowlet backend: real-time fraud detection, user risk assessment, transaction categorization and spending intelligence, and a support chatbot. The package is framework independent. The Flask backend consumes it through `backend/src/services/ml_gateway.py`.
 
-The `ml_services/` directory contains the machine learning stack that powers Flowlet's AI-enhanced financial intelligence. These services provide real-time fraud detection, risk assessment, transaction intelligence, and intelligent support capabilities. Built with Python and industry-standard ML frameworks, the models are designed for low-latency inference in production financial pipelines.
-
-## Directory Structure
+## Package layout
 
 ```
 ml_services/
-├── ai_models/                    # Core AI model implementations
-│   ├── fraud_detection.py        # Real-time transaction fraud scoring
-│   ├── risk_assessment.py        # User and transaction risk profiling
-│   ├── transaction_intelligence.py  # Pattern analysis and anomaly detection for transactions
-│   └── support_chatbot.py        # Conversational AI for customer support
-├── fraud_detection/              # Production fraud detection pipeline
-│   ├── anomaly_models.py         # Unsupervised anomaly detection models
-│   ├── ensemble_model.py         # Stacked ensemble of XGBoost, LightGBM, and Random Forest
-│   ├── supervised_models.py      # Individual supervised classifier implementations
-│   └── service.py                # Real-time inference service entry point
-└── tests/                        # ML-specific tests and benchmarks
+  config/                  environment driven settings (MLSettings)
+  core/                    enums, exceptions, logging, signed model registry
+  data/                    transaction validation, synthetic data generators
+  features/                feature schema, FeatureEngineer, history stores (memory, Redis)
+  fraud_detection/
+    models/                base, anomaly, supervised, stacked ensemble
+    rules.py               deterministic rule engine
+    detector.py            real-time detector (model plus rules)
+    explainer.py           per-prediction explanations
+    service.py             lifecycle: training, feedback, drift, retraining
+  risk_assessment/         multi-category user risk scoring
+  transaction_intelligence/ categorizer, recurring detection, spending analysis, forecast
+  support_chatbot/         intent routing, retrieval, grounded answers, PII redaction
+  training/                training pipeline and CLI
+  evaluation/              metrics, fairness report, walk-forward validation
+  monitoring/              drift (PSI, KS), latency tracking, Prometheus exporter
+  serving/                 MLServiceContainer used by the backend
+  tests/                   unit, integration, performance
 ```
 
-## Core AI Models (`ai_models/`)
+## Fraud detection design
 
-The `ai_models/` package provides the foundational intelligence layer used by the backend services.
+Scoring combines a model score and a rule score: `risk = max(model, rules)`. Without a trained model the service runs in `rules_only` mode and reports it in every response and in `/health`.
 
-| Module                        | Purpose                   | Key Functionality                                                                                                               |
-| ----------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `fraud_detection.py`          | Transaction Fraud Scoring | Identifies suspicious transactions using learned behavioral patterns and feature engineering.                                   |
-| `risk_assessment.py`          | Risk Profiling            | Evaluates user-level and transaction-level risk using statistical and machine learning methods.                                 |
-| `transaction_intelligence.py` | Pattern Analysis          | Detects anomalies in transaction sequences, identifies recurring patterns, and flags deviations from established user behavior. |
-| `support_chatbot.py`          | Conversational AI         | Provides automated customer support responses and routes complex queries to human agents.                                       |
+- Members: Isolation Forest, One-Class SVM, autoencoder (MLP reconstruction error), Random Forest, XGBoost, LightGBM, neural network. XGBoost and LightGBM are optional and skipped with a recorded reason when unavailable.
+- Anomaly scores are calibrated with a training-time empirical CDF, so a single transaction scores the same as it would inside a batch.
+- Class imbalance is handled per model (class weights, `scale_pos_weight`, minority oversampling).
+- Ensemble strategies: `stacking` (default, logistic regression meta-learner on out-of-fold scores), `weighted`, `average`.
+- Explanations use native tree contributions (XGBoost, LightGBM) with a standardized-deviation fallback, plus the rules that fired.
+- Actions: `allow`, `monitor`, `challenge`, `block` derived from risk thresholds (0.3, 0.6, 0.8 by default).
 
-## Fraud Detection Pipeline (`fraud_detection/`)
+### Model lifecycle
 
-The `fraud_detection/` package is the operational heart of Flowlet's security AI. It implements a multi-layered detection strategy that combines supervised learning, unsupervised anomaly detection, and ensemble stacking to achieve high accuracy with low latency.
+- `ModelRegistry` stores versioned artifacts with a SHA-256 checksum and an HMAC signature. Loading verifies both, which prevents loading tampered pickles. Set `ML_ARTIFACT_SIGNING_KEY` (falls back to `SECRET_KEY`; required in production).
+- Training from labeled features, from a labeled transaction stream (`build_training_frame` reconstructs point-in-time history), or from synthetic data.
+- Automatic retraining is champion/challenger: a challenger replaces the incumbent only if its holdout average precision is not worse than the incumbent's by more than `ML_MIN_PROMOTION_GAIN`.
+- Retraining triggers: no model, model age, feedback volume, feature drift (PSI).
+- Multiple server workers pick up a newly promoted model from the registry within 30 seconds.
 
-### Architecture
+### Synthetic bootstrap
 
-| Component              | Role                                                                                                                                                            |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `supervised_models.py` | Trains and manages individual classifiers (XGBoost, LightGBM, Random Forest) on labeled historical transaction data.                                            |
-| `anomaly_models.py`    | Implements unsupervised methods (isolation forest, autoencoder variants) to catch novel fraud patterns not seen in training data.                               |
-| `ensemble_model.py`    | Combines outputs from supervised and anomaly models via a meta-learner to produce a final risk score, reducing false positives while maintaining strong recall. |
-| `service.py`           | Production inference service that accepts transaction features via API calls and returns real-time fraud scores and decision recommendations.                   |
+`ML_BOOTSTRAP_ON_START` trains on synthetic data when no stored model exists. It defaults to on in development and off in production. Synthetic models are labeled `training_source: synthetic` in the status output. Train production models on real labeled data.
 
-### Performance Benchmarks
+## Configuration
 
-The fraud detection ensemble (XGBoost + LightGBM + Random Forest stacking) achieves the following on production validation data:
+| Variable                                                            | Default                | Purpose                                           |
+| ------------------------------------------------------------------- | ---------------------- | ------------------------------------------------- |
+| `ML_ENABLED`                                                        | true                   | master switch                                     |
+| `ML_MODEL_DIR`                                                      | system temp dir        | model registry location (use a persistent volume) |
+| `ML_ARTIFACT_SIGNING_KEY`                                           | `SECRET_KEY`           | artifact HMAC key                                 |
+| `ML_BOOTSTRAP_ON_START`                                             | true except production | train synthetic model when none stored            |
+| `ML_BOOTSTRAP_SAMPLES`                                              | 6000                   | synthetic sample count                            |
+| `ML_MEDIUM_THRESHOLD`, `ML_HIGH_THRESHOLD`, `ML_CRITICAL_THRESHOLD` | 0.3, 0.6, 0.8          | risk level cut-offs                               |
+| `ML_AUTO_RETRAIN`                                                   | true                   | allow `maybe_auto_retrain`                        |
+| `ML_RETRAIN_INTERVAL_DAYS`                                          | 30                     | model age trigger                                 |
+| `ML_MIN_FEEDBACK_SAMPLES`                                           | 200                    | feedback trigger                                  |
+| `ML_DRIFT_PSI_THRESHOLD`                                            | 0.25                   | drift trigger                                     |
+| `ML_FAIL_OPEN`                                                      | true                   | allow payments when scoring errors                |
+| `ML_ENFORCE_IN_PAYMENTS`                                            | true                   | screen payments in the backend                    |
+| `ML_BLOCK_IN_PAYMENTS`                                              | true                   | reject payments scored critical                   |
+| `ML_REDIS_URL`                                                      | unset                  | shared history store, falls back to memory        |
+| `ML_HIGH_RISK_COUNTRIES`                                            | KP,IR,MM,SY,CU         | ISO codes treated as high risk                    |
+| `ML_PERSIST_MODELS`                                                 | true                   | write models to the registry                      |
 
-| Metric                  | Value |
-| ----------------------- | ----- |
-| AUC-ROC                 | 0.987 |
-| Precision               | 97.3% |
-| Recall                  | 96.1% |
-| F1 Score                | 96.7% |
-| Inference latency (p50) | 8 ms  |
+## Backend integration
 
-For full performance reports including confusion matrices, walk-forward validation results, fairness analysis, and operational benchmarks, see `docs/ML_MODEL_PERFORMANCE.md` in the project root.
+Payments: `process_internal_transfer` and `process_external_payment` call `screen_payment` before moving funds. A `block` decision raises `FraudBlocked` (HTTP 403, code `FRAUD_BLOCKED`) and persists a `FraudAlert`. A `challenge` decision lets the payment proceed and persists an alert for review.
 
-## Technology Stack
+HTTP endpoints (all under `/api/v1`):
 
-| Component           | Technology                      |
-| ------------------- | ------------------------------- |
-| Language            | Python 3.11+                    |
-| ML Frameworks       | scikit-learn, XGBoost, LightGBM |
-| Feature Engineering | NumPy, pandas                   |
-| Model Serialization | joblib / pickle                 |
-| API Integration     | Flask-compatible service layer  |
+| Endpoint                                                                                                            | Access                       | Purpose                                         |
+| ------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ----------------------------------------------- |
+| `POST /ai/fraud-detection/analyze`                                                                                  | user (admin for other users) | score a transaction with database history       |
+| `GET /ai/fraud-detection/alerts`                                                                                    | user sees own, admin all     | paginated alerts                                |
+| `POST /ai/fraud-detection/alerts/<id>/respond`                                                                      | alert owner                  | `recognized` or `not_me`                        |
+| `POST /ai/fraud-detection/alerts/<id>/resolve`                                                                      | admin                        | resolve and feed the model                      |
+| `POST /ai/risk/assess`, `GET /ai/risk/report`                                                                       | user                         | risk assessment and trend                       |
+| `POST /ai/transactions/categorize`                                                                                  | user                         | categorize up to 500 transactions               |
+| `POST /ai/transactions/categorize/correction`                                                                       | user                         | learn a user correction                         |
+| `GET /ai/spending/analysis`                                                                                         | user                         | spending patterns, recurring payments, forecast |
+| `POST /ai/chatbot/query`                                                                                            | user                         | chatbot grounded in account data                |
+| `GET /ai/health`                                                                                                    | user                         | ML component health                             |
+| `POST /fraud/detect`, `/fraud/analyze`, `/fraud/anomalies`, `/fraud/velocity`                                       | user                         | direct scoring helpers                          |
+| `POST /fraud/detect/batch`, `/fraud/feedback`, `/fraud/model/train`, `/fraud/model/retrain`                         | admin                        | operations                                      |
+| `GET /fraud/model/status`, `/fraud/model/drift`, `/fraud/model/retrain/check`, `/fraud/alerts`, `/fraud/statistics` | admin                        | monitoring                                      |
 
-## Integration with Backend
+## Training CLI
 
-The ML services integrate with the main backend through the `backend/src/ai/` module. During transaction processing, the backend calls the fraud detection service to obtain a risk score before authorizing a payment. Similarly, risk assessment and transaction intelligence models are invoked during user onboarding, KYC workflows, and wallet operations.
+```
+python -m ml_services.training.cli train-synthetic --samples 8000
+python -m ml_services.training.cli train-transactions transactions.json --label-key is_fraud
+python -m ml_services.training.cli train-features features.csv --label-column is_fraud
+python -m ml_services.training.cli list
+python -m ml_services.training.cli promote <version>
+```
+
+## Python usage
+
+```python
+from ml_services.fraud_detection import FraudDetectionService
+
+service = FraudDetectionService()
+service.warm_up(block=True)
+alert = service.detect({"user_id": "u1", "amount": 250.0, "currency": "USD", "merchant_category": "retail"})
+print(alert.risk_level, alert.action, alert.explanation["summary"])
+```
 
 ## Testing
 
-ML service tests are located in `ml_services/tests/` and cover:
-
-- **Model correctness**: Unit tests for individual model predictions and edge cases
-- **Pipeline integrity**: End-to-end validation of the preprocessing, inference, and scoring pipeline
-- **Performance benchmarks**: Latency and throughput tests under simulated load
-- **Fairness and drift**: Validation that models maintain equitable performance across user segments and detect data drift
-
-Run ML tests:
-
-```bash
-cd code/ml_services
-pytest tests/
+```
+pip install -r requirements-dev.txt
+python -m pytest tests
 ```
 
-## Usage
+## Known limitations
 
-### Real-Time Fraud Scoring
-
-The primary production entry point is `fraud_detection/service.py`, which exposes a callable interface for real-time transaction scoring:
-
-```python
-from ml_services.fraud_detection.service import FraudDetectionService
-
-service = FraudDetectionService()
-score = service.predict(transaction_features)
-```
-
-### Model Retraining
-
-Individual models can be retrained by running their respective module scripts directly. Training pipelines expect preprocessed transaction data in the format documented in `docs/ML_MODEL_PERFORMANCE.md`.
-
-## Related Documentation
-
-- [Backend README](../backend/README.md) - API routes and backend architecture that consume these ML services
-- [Project README](../../README.md) - High-level project overview and installation guide
-- `docs/ML_MODEL_PERFORMANCE.md` - Detailed model tearsheets and operational metrics
+- Alerts, feedback and the feature cache are held in process memory. With several server workers, feedback applies only when the worker that scored the transaction receives it. Database alerts are authoritative.
+- Chatbot answers come from a curated knowledge base and the user's own account data. An optional LLM fallback in the backend handles low confidence questions when `OPENAI_API_KEY` is set.
+- The legacy `ai_models` package was replaced by the packages above.

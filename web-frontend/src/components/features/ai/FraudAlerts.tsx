@@ -11,13 +11,7 @@ import {
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -27,78 +21,25 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { describeError, useAsyncData } from "@/hooks/useAsyncData";
+import {
+  mlService,
+  type AlertStatus,
+  type FraudAlertRecord,
+  type RiskLevel,
+} from "@/lib/api/mlService";
 
-type AlertStatus = "pending" | "reviewed" | "resolved" | "dismissed";
-type AlertSeverity = "high" | "medium" | "low";
+type SeverityKey = "high" | "medium" | "low";
 
-interface FraudAlert {
-  id: string;
-  severity: AlertSeverity;
-  title: string;
-  description: string;
-  amount?: number;
-  merchant?: string;
-  location?: string;
-  time: string;
-  status: AlertStatus;
-}
-
-const ALERTS: FraudAlert[] = [
-  {
-    id: "1",
-    severity: "high",
-    title: "Unusual Transaction Pattern",
-    description:
-      "Multiple small transactions detected within 10 minutes - possible card testing",
-    amount: 4.99,
-    time: "2 hours ago",
-    status: "pending",
-    location: "Online",
-  },
-  {
-    id: "2",
-    severity: "high",
-    title: "New Geographic Location",
-    description: "Transaction detected 3,000 miles from your usual location",
-    amount: 284.5,
-    merchant: "Electronics Store",
-    time: "5 hours ago",
-    status: "pending",
-    location: "Dubai, UAE",
-  },
-  {
-    id: "3",
-    severity: "medium",
-    title: "Velocity Check Failed",
-    description: "5 transactions in 3 minutes exceeds normal pattern",
-    amount: 156.0,
-    time: "1 day ago",
-    status: "reviewed",
-  },
-  {
-    id: "4",
-    severity: "low",
-    title: "Merchant Category Anomaly",
-    description: "First transaction at this merchant type",
-    amount: 89.99,
-    merchant: "Crypto Exchange",
-    time: "2 days ago",
-    status: "resolved",
-  },
-  {
-    id: "5",
-    severity: "medium",
-    title: "Large Transaction Alert",
-    description: "Transaction 3x larger than your average",
-    amount: 1200.0,
-    merchant: "Jewelry Store",
-    time: "3 days ago",
-    status: "dismissed",
-  },
-];
+const severityFor = (level: RiskLevel | null): SeverityKey => {
+  if (level === "critical" || level === "high") return "high";
+  if (level === "medium") return "medium";
+  return "low";
+};
 
 const severityConfig: Record<
-  AlertSeverity,
+  SeverityKey,
   { label: string; className: string; dot: string; icon: typeof AlertTriangle }
 > = {
   high: {
@@ -133,10 +74,25 @@ const statusConfig: Record<
     icon: Clock,
     className: "text-amber-600 dark:text-amber-400",
   },
+  investigating: {
+    label: "Investigating",
+    icon: Eye,
+    className: "text-blue-600 dark:text-blue-400",
+  },
   reviewed: {
     label: "Under Review",
     icon: Eye,
     className: "text-blue-600 dark:text-blue-400",
+  },
+  confirmed: {
+    label: "Confirmed Fraud",
+    icon: ShieldAlert,
+    className: "text-destructive",
+  },
+  false_positive: {
+    label: "False Positive",
+    icon: CheckCircle,
+    className: "text-emerald-600 dark:text-emerald-400",
   },
   resolved: {
     label: "Resolved",
@@ -150,18 +106,79 @@ const statusConfig: Record<
   },
 };
 
-export default function FraudAlerts() {
-  const [alerts, setAlerts] = useState(ALERTS);
-  const [filter, setFilter] = useState<"all" | AlertStatus>("all");
+const CLOSED: AlertStatus[] = [
+  "resolved",
+  "dismissed",
+  "confirmed",
+  "false_positive",
+];
 
-  const updateStatus = (id: string, status: AlertStatus) => {
-    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
-    toast.success(`Alert ${status}`);
+const titleFor = (alert: FraudAlertRecord) =>
+  alert.alert_type
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+const formatTime = (value: string | null) =>
+  value ? new Date(value).toLocaleString() : "";
+
+export default function FraudAlerts() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const [filter, setFilter] = useState<"all" | AlertStatus>("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const { data, loading, error, reload } = useAsyncData(
+    () =>
+      mlService.listAlerts({
+        per_page: 100,
+        status: filter === "all" ? undefined : filter,
+      }),
+    [filter],
+  );
+
+  const alerts = data?.alerts ?? [];
+  const pending = alerts.filter((a) => a.status === "pending").length;
+
+  const act = async (
+    id: string,
+    task: () => Promise<unknown>,
+    done: string,
+  ) => {
+    setBusyId(id);
+    try {
+      await task();
+      toast.success(done);
+      await reload();
+    } catch (err) {
+      toast.error(describeError(err));
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const filtered =
-    filter === "all" ? alerts : alerts.filter((a) => a.status === filter);
-  const pending = alerts.filter((a) => a.status === "pending").length;
+  const stats = [
+    {
+      label: "Total Alerts",
+      value: data?.pagination.total ?? 0,
+      color: "text-foreground",
+    },
+    {
+      label: "Pending",
+      value: pending,
+      color: "text-amber-600 dark:text-amber-400",
+    },
+    {
+      label: "High Risk",
+      value: alerts.filter((a) => severityFor(a.risk_level) === "high").length,
+      color: "text-destructive",
+    },
+    {
+      label: "Closed",
+      value: alerts.filter((a) => CLOSED.includes(a.status)).length,
+      color: "text-emerald-600 dark:text-emerald-400",
+    },
+  ];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -183,37 +200,16 @@ export default function FraudAlerts() {
           variant="outline"
           size="sm"
           className="gap-1.5 self-start"
-          onClick={() => toast.info("Refreshing alerts...")}
+          onClick={() => void reload()}
+          disabled={loading}
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           Refresh
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 stagger-children">
-        {[
-          {
-            label: "Total Alerts",
-            value: alerts.length,
-            color: "text-foreground",
-          },
-          {
-            label: "Pending",
-            value: alerts.filter((a) => a.status === "pending").length,
-            color: "text-amber-600 dark:text-amber-400",
-          },
-          {
-            label: "High Risk",
-            value: alerts.filter((a) => a.severity === "high").length,
-            color: "text-destructive",
-          },
-          {
-            label: "Resolved",
-            value: alerts.filter((a) => a.status === "resolved").length,
-            color: "text-emerald-600 dark:text-emerald-400",
-          },
-        ].map(({ label, value, color }) => (
+        {stats.map(({ label, value, color }) => (
           <Card key={label}>
             <CardContent className="p-4 text-center">
               <p className={cn("text-2xl font-bold tabular-nums", color)}>
@@ -225,7 +221,6 @@ export default function FraudAlerts() {
         ))}
       </div>
 
-      {/* Filter */}
       <div className="flex items-center gap-3">
         <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
         <Select
@@ -238,32 +233,46 @@ export default function FraudAlerts() {
           <SelectContent>
             <SelectItem value="all">All alerts</SelectItem>
             <SelectItem value="pending">Pending Review</SelectItem>
+            <SelectItem value="investigating">Investigating</SelectItem>
             <SelectItem value="reviewed">Under Review</SelectItem>
+            <SelectItem value="confirmed">Confirmed Fraud</SelectItem>
+            <SelectItem value="false_positive">False Positive</SelectItem>
             <SelectItem value="resolved">Resolved</SelectItem>
             <SelectItem value="dismissed">Dismissed</SelectItem>
           </SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground">
-          {filtered.length} result{filtered.length !== 1 ? "s" : ""}
+          {alerts.length} result{alerts.length !== 1 ? "s" : ""}
         </span>
       </div>
 
-      {/* Alerts list */}
+      {error && (
+        <Card>
+          <CardContent className="py-6 text-center space-y-3">
+            <p className="text-sm text-destructive">{error}</p>
+            <Button size="sm" variant="outline" onClick={() => void reload()}>
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="space-y-3 stagger-children">
-        {filtered.map((alert) => {
-          const sev = severityConfig[alert.severity];
-          const stat = statusConfig[alert.status];
+        {alerts.map((alert) => {
+          const sev = severityConfig[severityFor(alert.risk_level)];
+          const stat = statusConfig[alert.status] ?? statusConfig.pending;
           const SevIcon = sev.icon;
           const StatIcon = stat.icon;
+          const closed = CLOSED.includes(alert.status);
+          const busy = busyId === alert.id;
+          const hits = alert.details?.rule_hits ?? [];
 
           return (
             <Card
               key={alert.id}
               className={cn(
                 "transition-all duration-200",
-                alert.status === "resolved" || alert.status === "dismissed"
-                  ? "opacity-60"
-                  : "",
+                closed && "opacity-60",
               )}
             >
               <CardContent className="p-5">
@@ -281,7 +290,9 @@ export default function FraudAlerts() {
                     <div className="flex items-start justify-between gap-2 flex-wrap">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-sm">{alert.title}</p>
+                          <p className="font-semibold text-sm">
+                            {titleFor(alert)}
+                          </p>
                           <Badge
                             variant="outline"
                             className={cn("text-[10px] border", sev.className)}
@@ -295,9 +306,11 @@ export default function FraudAlerts() {
                             {sev.label}
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {alert.description}
-                        </p>
+                        {alert.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {alert.description}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <StatIcon
@@ -315,61 +328,115 @@ export default function FraudAlerts() {
                     </div>
 
                     <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                      {alert.amount && (
-                        <span className="font-medium text-foreground">
-                          ${alert.amount.toFixed(2)}
-                        </span>
+                      <span className="font-medium text-foreground">
+                        Risk score {Math.round(alert.risk_score)}
+                      </span>
+                      {alert.transaction_id && (
+                        <span>Ref {alert.transaction_id.slice(0, 12)}</span>
                       )}
-                      {alert.merchant && <span>{alert.merchant}</span>}
-                      {alert.location && <span>📍 {alert.location}</span>}
-                      <span>{alert.time}</span>
+                      <span>{formatTime(alert.created_at)}</span>
                     </div>
 
-                    {alert.status === "pending" && (
+                    {hits.length > 0 && (
+                      <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+                        {hits.slice(0, 3).map((hit) => (
+                          <li key={hit.name}>{hit.description}</li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {!closed && !isAdmin && (
                       <div className="flex gap-2 pt-1">
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => updateStatus(alert.id, "reviewed")}
-                        >
-                          <Eye className="h-3 w-3" />
-                          Review
-                        </Button>
-                        <Button
-                          size="sm"
                           className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
-                          onClick={() => updateStatus(alert.id, "resolved")}
+                          disabled={busy}
+                          onClick={() =>
+                            void act(
+                              alert.id,
+                              () =>
+                                mlService.respondToAlert(
+                                  alert.id,
+                                  "recognized",
+                                ),
+                              "Thanks, we noted that you recognize this activity",
+                            )
+                          }
                         >
                           <CheckCircle className="h-3 w-3" />
-                          Resolve
+                          This was me
                         </Button>
                         <Button
                           size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs gap-1 text-muted-foreground"
-                          onClick={() => updateStatus(alert.id, "dismissed")}
+                          variant="destructive"
+                          className="h-7 text-xs gap-1"
+                          disabled={busy}
+                          onClick={() =>
+                            void act(
+                              alert.id,
+                              () =>
+                                mlService.respondToAlert(alert.id, "not_me"),
+                              "Reported. Our team will investigate",
+                            )
+                          }
                         >
-                          <XCircle className="h-3 w-3" />
-                          Dismiss
+                          <ShieldAlert className="h-3 w-3" />
+                          Not me
                         </Button>
                       </div>
                     )}
-                    {alert.status === "reviewed" && (
+
+                    {!closed && isAdmin && (
                       <div className="flex gap-2 pt-1">
                         <Button
                           size="sm"
+                          variant="destructive"
+                          className="h-7 text-xs gap-1"
+                          disabled={busy}
+                          onClick={() =>
+                            void act(
+                              alert.id,
+                              () =>
+                                mlService.resolveAlert(alert.id, "confirmed"),
+                              "Marked as confirmed fraud",
+                            )
+                          }
+                        >
+                          <ShieldAlert className="h-3 w-3" />
+                          Confirm fraud
+                        </Button>
+                        <Button
+                          size="sm"
                           className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
-                          onClick={() => updateStatus(alert.id, "resolved")}
+                          disabled={busy}
+                          onClick={() =>
+                            void act(
+                              alert.id,
+                              () =>
+                                mlService.resolveAlert(
+                                  alert.id,
+                                  "false_positive",
+                                ),
+                              "Marked as false positive",
+                            )
+                          }
                         >
                           <CheckCircle className="h-3 w-3" />
-                          Mark Resolved
+                          False positive
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
                           className="h-7 text-xs gap-1 text-muted-foreground"
-                          onClick={() => updateStatus(alert.id, "dismissed")}
+                          disabled={busy}
+                          onClick={() =>
+                            void act(
+                              alert.id,
+                              () =>
+                                mlService.resolveAlert(alert.id, "dismissed"),
+                              "Alert dismissed",
+                            )
+                          }
                         >
                           <XCircle className="h-3 w-3" />
                           Dismiss
@@ -383,7 +450,7 @@ export default function FraudAlerts() {
           );
         })}
 
-        {filtered.length === 0 && (
+        {!loading && !error && alerts.length === 0 && (
           <Card>
             <CardContent className="py-16 text-center">
               <CheckCircle className="h-10 w-10 mx-auto mb-3 text-emerald-500 opacity-60" />

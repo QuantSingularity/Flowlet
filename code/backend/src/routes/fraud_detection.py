@@ -1,356 +1,326 @@
-import asyncio
 import logging
-from datetime import datetime
 from typing import Any
 
-try:
-    import pandas as pd
-
-    PANDAS_AVAILABLE = True
-except ImportError:
-    pd = None
-    PANDAS_AVAILABLE = False
-import flask
+import pandas as pd
 from flask import Blueprint, jsonify, request
-from flask_cors import cross_origin
-from ml_services.fraud_detection import FraudDetectionError, RiskLevel
-from ml_services.fraud_detection.service import get_fraud_service
 
-"\nFlask Routes for Fraud Detection\nProvides REST API endpoints for fraud detection functionality\n"
+from ..services.ml_gateway import get_ml, ml_enabled
+from ..utils.auth import admin_required, token_required
+from .ml_common import error_response, int_arg, is_admin, json_body
+
+try:
+    from ml_services.core.enums import RiskLevel
+    from ml_services.core.exceptions import FraudDetectionError, MLServiceError
+except Exception:
+
+    class MLServiceError(Exception):
+        pass
+
+    class FraudDetectionError(MLServiceError):
+        pass
+
+    RiskLevel = None
+
 logger = logging.getLogger(__name__)
 fraud_detection_bp = Blueprint("fraud", __name__, url_prefix="/fraud")
 
+MAX_BATCH = 500
+MAX_TRAINING_ROWS = 200000
+
+
+def _service() -> Any:
+    container = get_ml()
+    if container is None or not ml_enabled():
+        return None
+    return container.fraud
+
+
+def _unavailable() -> Any:
+    return error_response("Fraud detection is unavailable", "ML_UNAVAILABLE", 503)
+
+
+def _scope_user(payload: dict) -> dict:
+    from flask import g
+
+    scoped = dict(payload)
+    if not is_admin() or not scoped.get("user_id"):
+        scoped["user_id"] = str(g.current_user.id)
+    return scoped
+
 
 @fraud_detection_bp.route("/detect", methods=["POST"])
-@cross_origin()
+@token_required
 def detect_fraud() -> object:
-    """Detect fraud for a single transaction"""
-    try:
-        data = request.get_json()
-        required_fields = [
-            "transaction_id",
-            "user_id",
-            "amount",
-            "currency",
-            "timestamp",
-        ]
-        for field in required_fields:
-            if field not in data:
-                return (
-                    jsonify(
-                        {"success": False, "error": f"Missing required field: {field}"}
-                    ),
-                    400,
-                )
-        fraud_service = get_fraud_service()
-        user_history = None
-        if "user_history" in data and data["user_history"]:
-            user_history = pd.DataFrame(data["user_history"])
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        alert = loop.run_until_complete(fraud_service.detect_fraud(data, user_history))
-        loop.close()
-        alert_data = {
-            "alert_id": alert.alert_id,
-            "transaction_id": alert.transaction_id,
-            "user_id": alert.user_id,
-            "risk_score": alert.risk_score,
-            "risk_level": alert.risk_level.value,
-            "fraud_types": [ft.value for ft in alert.fraud_types],
-            "confidence": alert.confidence,
-            "timestamp": alert.timestamp.isoformat(),
-            "features_used": alert.features_used,
-            "model_version": alert.model_version,
-            "explanation": alert.explanation,
-            "recommended_actions": alert.recommended_actions,
-        }
-        return (jsonify({"success": True, "alert": alert_data}), 200)
-    except FraudDetectionError as e:
-        return (jsonify({"success": False, "error": str(e)}), 400)
-    except Exception as e:
-        logger.error(f"Fraud detection failed: {str(e)}")
-        return (jsonify({"success": False, "error": str(e)}), 500)
+    service = _service()
+    if service is None:
+        return _unavailable()
+    data, failure = json_body(("amount",))
+    if failure:
+        return failure
+    alert = service.detect(_scope_user(data))
+    return jsonify({"success": True, "alert": alert.to_dict()}), 200
 
 
 @fraud_detection_bp.route("/detect/batch", methods=["POST"])
-@cross_origin()
+@admin_required
 def detect_fraud_batch() -> object:
-    """Detect fraud for multiple transactions"""
-    try:
-        data = request.get_json()
-        if "transactions" not in data:
-            return (
-                jsonify(
-                    {"success": False, "error": "Missing required field: transactions"}
-                ),
-                400,
-            )
-        transactions = data["transactions"]
-        user_histories = data.get("user_histories", {})
-        processed_histories = {}
-        for user_id, history in user_histories.items():
-            if history:
-                processed_histories[user_id] = pd.DataFrame(history)
-        fraud_service = get_fraud_service()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        alerts = loop.run_until_complete(
-            fraud_service.batch_detect_fraud(transactions, processed_histories)
+    service = _service()
+    if service is None:
+        return _unavailable()
+    data, failure = json_body(("transactions",))
+    if failure:
+        return failure
+    transactions = data["transactions"]
+    if not isinstance(transactions, list) or not transactions:
+        return error_response(
+            "transactions must be a non-empty list", "INVALID_TRANSACTIONS", 400
         )
-        loop.close()
-        alerts_data = []
-        for alert in alerts:
-            alert_data = {
-                "alert_id": alert.alert_id,
-                "transaction_id": alert.transaction_id,
-                "user_id": alert.user_id,
-                "risk_score": alert.risk_score,
-                "risk_level": alert.risk_level.value,
-                "fraud_types": [ft.value for ft in alert.fraud_types],
-                "confidence": alert.confidence,
-                "timestamp": alert.timestamp.isoformat(),
-                "features_used": alert.features_used,
-                "model_version": alert.model_version,
-                "explanation": alert.explanation,
-                "recommended_actions": alert.recommended_actions,
+    if len(transactions) > MAX_BATCH:
+        return error_response(
+            f"At most {MAX_BATCH} transactions per batch", "BATCH_TOO_LARGE", 413
+        )
+    alerts = service.batch_detect(transactions)
+    return (
+        jsonify(
+            {
+                "success": True,
+                "count": len(alerts),
+                "alerts": [alert.to_dict(include_details=False) for alert in alerts],
             }
-            alerts_data.append(alert_data)
-        return (
-            jsonify(
-                {
-                    "success": True,
-                    "alerts": alerts_data,
-                    "total_processed": len(transactions),
-                }
-            ),
-            200,
-        )
-    except FraudDetectionError as e:
-        return (jsonify({"success": False, "error": str(e)}), 400)
-    except Exception as e:
-        logger.error(f"Batch fraud detection failed: {str(e)}")
-        return (jsonify({"success": False, "error": str(e)}), 500)
+        ),
+        200,
+    )
+
+
+@fraud_detection_bp.route("/analyze", methods=["POST"])
+@token_required
+def analyze_transaction() -> object:
+    service = _service()
+    if service is None:
+        return _unavailable()
+    data, failure = json_body(("amount",))
+    if failure:
+        return failure
+    return (
+        jsonify(
+            {
+                "success": True,
+                "analysis": service.analyze_transaction(_scope_user(data)),
+            }
+        ),
+        200,
+    )
+
+
+@fraud_detection_bp.route("/anomalies", methods=["POST"])
+@token_required
+def detect_anomalies() -> object:
+    service = _service()
+    if service is None:
+        return _unavailable()
+    data, failure = json_body(("amount",))
+    if failure:
+        return failure
+    return (
+        jsonify({"success": True, **service.detect_anomalies(_scope_user(data))}),
+        200,
+    )
+
+
+@fraud_detection_bp.route("/velocity", methods=["POST"])
+@token_required
+def check_velocity() -> object:
+    service = _service()
+    if service is None:
+        return _unavailable()
+    data, failure = json_body()
+    if failure:
+        return failure
+    scoped = _scope_user(data)
+    result = service.check_velocity(
+        scoped["user_id"],
+        data.get("transactions") or data.get("amount"),
+        data.get("currency", "USD"),
+    )
+    return jsonify({"success": True, **result}), 200
 
 
 @fraud_detection_bp.route("/model/train", methods=["POST"])
-@cross_origin()
+@admin_required
 def train_model() -> object:
-    """Train the fraud detection model"""
-    try:
-        data = request.get_json()
-        if "training_data" not in data:
-            return (
-                jsonify(
-                    {"success": False, "error": "Missing required field: training_data"}
-                ),
+    service = _service()
+    if service is None:
+        return _unavailable()
+    data, failure = json_body()
+    if failure:
+        return failure
+    if data.get("synthetic"):
+        result = service.bootstrap(data.get("samples"))
+    elif data.get("transactions"):
+        records = data["transactions"]
+        if not isinstance(records, list) or len(records) > MAX_TRAINING_ROWS:
+            return error_response(
+                "transactions must be a list within the size limit",
+                "INVALID_TRAINING_DATA",
                 400,
             )
-        training_df = pd.DataFrame(data["training_data"])
-        labels = None
-        if "labels" in data and data["labels"]:
-            labels = pd.Series(data["labels"])
-        validation_data = None
-        if "validation_data" in data and data["validation_data"]:
-            val_df = pd.DataFrame(data["validation_data"])
-            val_labels = pd.Series(data.get("validation_labels", []))
-            validation_data = (val_df, val_labels)
-        fraud_service = get_fraud_service()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        training_results = loop.run_until_complete(
-            fraud_service.train_model(training_df, labels, validation_data)
+        result = service.train_from_transactions(
+            records, data.get("label_key", "is_fraud")
         )
-        loop.close()
-        return (jsonify({"success": True, "training_results": training_results}), 200)
-    except FraudDetectionError as e:
-        return (jsonify({"success": False, "error": str(e)}), 400)
-    except Exception as e:
-        logger.error(f"Model training failed: {str(e)}")
-        return (jsonify({"success": False, "error": str(e)}), 500)
+    else:
+        rows = data.get("training_data")
+        labels = data.get("labels")
+        if not isinstance(rows, list) or not rows or labels is None:
+            return error_response(
+                "training_data and labels are required", "MISSING_TRAINING_DATA", 400
+            )
+        if len(rows) > MAX_TRAINING_ROWS or len(rows) != len(labels):
+            return error_response(
+                "training_data and labels must match and stay within limits",
+                "INVALID_TRAINING_DATA",
+                400,
+            )
+        validation = None
+        if data.get("validation_data") and data.get("validation_labels"):
+            validation = (
+                pd.DataFrame(data["validation_data"]),
+                data["validation_labels"],
+            )
+        result = service.train_model_sync(
+            pd.DataFrame(rows), labels, validation, True, "supplied"
+        )
+    return jsonify({"success": True, "result": result}), 200
+
+
+@fraud_detection_bp.route("/model/retrain", methods=["POST"])
+@admin_required
+def retrain_model() -> object:
+    service = _service()
+    if service is None:
+        return _unavailable()
+    data = request.get_json(silent=True) or {}
+    result = service.retrain_from_feedback(force=bool(data.get("force", False)))
+    return jsonify({"success": True, "result": result}), 200
 
 
 @fraud_detection_bp.route("/model/status", methods=["GET"])
-@cross_origin()
-def get_model_status() -> "flask.Response":
-    """Get fraud detection model status"""
-    try:
-        fraud_service = get_fraud_service()
-        status = fraud_service.get_model_status()
-        if status.get("training_timestamp"):
-            status["training_timestamp"] = status["training_timestamp"].isoformat()
-        if status.get("performance_metrics", {}).get("last_retrain"):
-            status["performance_metrics"]["last_retrain"] = status[
-                "performance_metrics"
-            ]["last_retrain"].isoformat()
-        return (jsonify({"success": True, "model_status": status}), 200)
-    except Exception as e:
-        logger.error(f"Failed to get model status: {str(e)}")
-        return (jsonify({"success": False, "error": str(e)}), 500)
+@admin_required
+def get_model_status() -> object:
+    service = _service()
+    if service is None:
+        return _unavailable()
+    return jsonify({"success": True, "status": service.get_model_status()}), 200
 
 
-@fraud_detection_bp.route("/alerts", methods=["GET"])
-@cross_origin()
-def get_recent_alerts() -> "flask.Response":
-    """Get recent fraud alerts"""
-    try:
-        hours = request.args.get("hours", 24, type=int)
-        risk_levels = request.args.getlist("risk_levels")
-        risk_level_enums = []
-        for level in risk_levels:
-            try:
-                risk_level_enums.append(RiskLevel(level))
-            except ValueError:
-                return (
-                    jsonify(
-                        {"success": False, "error": f"Invalid risk level: {level}"}
-                    ),
-                    400,
-                )
-        fraud_service = get_fraud_service()
-        alerts = fraud_service.get_recent_alerts(
-            hours=hours, risk_levels=risk_level_enums if risk_level_enums else None
-        )
-        alerts_data = []
-        for alert in alerts:
-            alert_data = {
-                "alert_id": alert.alert_id,
-                "transaction_id": alert.transaction_id,
-                "user_id": alert.user_id,
-                "risk_score": alert.risk_score,
-                "risk_level": alert.risk_level.value,
-                "fraud_types": [ft.value for ft in alert.fraud_types],
-                "confidence": alert.confidence,
-                "timestamp": alert.timestamp.isoformat(),
-                "recommended_actions": alert.recommended_actions,
-            }
-            alerts_data.append(alert_data)
-        return (
-            jsonify(
-                {
-                    "success": True,
-                    "alerts": alerts_data,
-                    "total_alerts": len(alerts_data),
-                    "hours_analyzed": hours,
-                }
-            ),
-            200,
-        )
-    except Exception as e:
-        logger.error(f"Failed to get alerts: {str(e)}")
-        return (jsonify({"success": False, "error": str(e)}), 500)
-
-
-@fraud_detection_bp.route("/statistics", methods=["GET"])
-@cross_origin()
-def get_fraud_statistics() -> "flask.Response":
-    """Get fraud detection statistics"""
-    try:
-        hours = request.args.get("hours", 24, type=int)
-        fraud_service = get_fraud_service()
-        statistics = fraud_service.get_fraud_statistics(hours)
-        return (
-            jsonify(
-                {"success": True, "statistics": statistics, "hours_analyzed": hours}
-            ),
-            200,
-        )
-    except Exception as e:
-        logger.error(f"Failed to get statistics: {str(e)}")
-        return (jsonify({"success": False, "error": str(e)}), 500)
-
-
-@fraud_detection_bp.route("/feedback", methods=["POST"])
-@cross_origin()
-def submit_feedback() -> object:
-    """Submit feedback on fraud detection results"""
-    try:
-        data = request.get_json()
-        required_fields = ["transaction_id", "is_fraud"]
-        for field in required_fields:
-            if field not in data:
-                return (
-                    jsonify(
-                        {"success": False, "error": f"Missing required field: {field}"}
-                    ),
-                    400,
-                )
-        transaction_id = data["transaction_id"]
-        is_fraud = bool(data["is_fraud"])
-        feedback_type = data.get("feedback_type", "manual_review")
-        fraud_service = get_fraud_service()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(
-            fraud_service.update_model_feedback(transaction_id, is_fraud, feedback_type)
-        )
-        loop.close()
-        return (
-            jsonify({"success": True, "message": "Feedback submitted successfully"}),
-            200,
-        )
-    except Exception as e:
-        logger.error(f"Failed to submit feedback: {str(e)}")
-        return (jsonify({"success": False, "error": str(e)}), 500)
+@fraud_detection_bp.route("/model/drift", methods=["GET"])
+@admin_required
+def get_drift() -> object:
+    service = _service()
+    if service is None:
+        return _unavailable()
+    return jsonify({"success": True, "drift": service.drift_report()}), 200
 
 
 @fraud_detection_bp.route("/model/retrain/check", methods=["GET"])
-@cross_origin()
-def check_retrain_needed() -> None:
-    """Check if model retraining is needed"""
-    try:
-        fraud_service = get_fraud_service()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        retrain_needed = loop.run_until_complete(fraud_service.check_retrain_needed())
-        loop.close()
-        return (
-            jsonify(
-                {
-                    "success": True,
-                    "retrain_needed": retrain_needed,
-                    "auto_retrain_enabled": fraud_service.auto_retrain,
-                }
-            ),
-            200,
+@admin_required
+def check_retrain_needed() -> object:
+    service = _service()
+    if service is None:
+        return _unavailable()
+    reasons = service.retrain_reasons()
+    return (
+        jsonify(
+            {
+                "success": True,
+                "retrain_needed": bool(reasons),
+                "reasons": reasons,
+                "auto_retrain": service.auto_retrain,
+            }
+        ),
+        200,
+    )
+
+
+@fraud_detection_bp.route("/alerts", methods=["GET"])
+@admin_required
+def get_recent_alerts() -> object:
+    service = _service()
+    if service is None:
+        return _unavailable()
+    hours = int_arg("hours", 24, 1, 24 * 90)
+    limit = int_arg("limit", 100, 1, 1000)
+    raw_levels = request.args.get("risk_levels", "")
+    levels = []
+    for item in [
+        part.strip().lower() for part in raw_levels.split(",") if part.strip()
+    ]:
+        try:
+            levels.append(RiskLevel(item))
+        except ValueError:
+            return error_response(
+                f"Invalid risk level: {item}", "INVALID_RISK_LEVEL", 400
+            )
+    alerts = service.get_recent_alerts(hours, levels or None, limit)
+    return (
+        jsonify(
+            {
+                "success": True,
+                "count": len(alerts),
+                "alerts": [alert.to_dict(include_details=False) for alert in alerts],
+            }
+        ),
+        200,
+    )
+
+
+@fraud_detection_bp.route("/statistics", methods=["GET"])
+@admin_required
+def get_fraud_statistics() -> object:
+    service = _service()
+    if service is None:
+        return _unavailable()
+    hours = int_arg("hours", 24, 1, 24 * 90)
+    return (
+        jsonify({"success": True, "statistics": service.get_fraud_statistics(hours)}),
+        200,
+    )
+
+
+@fraud_detection_bp.route("/feedback", methods=["POST"])
+@admin_required
+def submit_feedback() -> object:
+    service = _service()
+    if service is None:
+        return _unavailable()
+    data, failure = json_body(("transaction_id", "is_fraud"))
+    if failure:
+        return failure
+    if not isinstance(data["is_fraud"], bool):
+        return error_response("is_fraud must be a boolean", "INVALID_FEEDBACK", 400)
+    recorded = service.record_feedback(
+        str(data["transaction_id"]),
+        data["is_fraud"],
+        str(data.get("feedback_type", "manual_review")),
+    )
+    if not recorded:
+        return error_response(
+            "Transaction not found in recent alerts", "TRANSACTION_NOT_FOUND", 404
         )
-    except Exception as e:
-        logger.error(f"Failed to check retrain status: {str(e)}")
-        return (jsonify({"success": False, "error": str(e)}), 500)
+    return jsonify({"success": True, "message": "Feedback recorded"}), 200
 
 
 @fraud_detection_bp.route("/health", methods=["GET"])
-@cross_origin()
-def health_check() -> "flask.Response":
-    """Health check endpoint for fraud detection service"""
-    try:
-        fraud_service = get_fraud_service()
-        status = fraud_service.get_model_status()
-        is_healthy = (
-            status.get("model_initialized", False)
-            and status.get("model_trained", False)
-            and status.get("real_time_detector_ready", False)
-        )
-        return (
-            jsonify(
-                {
-                    "success": True,
-                    "health_status": "healthy" if is_healthy else "degraded",
-                    "model_ready": is_healthy,
-                    "timestamp": datetime.now().isoformat(),
-                }
-            ),
-            200,
-        )
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return (jsonify({"success": False, "error": str(e)}), 500)
+def health_check() -> object:
+    service = _service()
+    if service is None:
+        return jsonify({"status": "disabled"}), 200
+    health = service.health()
+    return jsonify({"status": health["status"], "mode": health["mode"]}), 200
 
 
-@fraud_detection_bp.errorhandler(FraudDetectionError)
-def handle_fraud_detection_error(e: Any) -> "flask.Response":
-    return (
-        jsonify(
-            {"success": False, "error": "Fraud detection error", "details": str(e)}
-        ),
-        400,
-    )
+@fraud_detection_bp.errorhandler(MLServiceError)
+def handle_ml_error(error: Exception) -> object:
+    logger.warning("ML service error: %s", error)
+    if isinstance(error, FraudDetectionError):
+        return error_response(str(error), "FRAUD_DETECTION_ERROR", 400)
+    return error_response("ML service error", "ML_ERROR", 500)

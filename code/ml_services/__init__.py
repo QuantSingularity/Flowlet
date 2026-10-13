@@ -1,1 +1,3 @@
-"""ML Services for Flowlet - fraud detection, AI models, and machine learning utilities."""
+__version__ = "2.0.0"
+
+__all__ = ["__version__"]

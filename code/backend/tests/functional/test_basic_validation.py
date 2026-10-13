@@ -41,9 +41,15 @@ class TestModuleStructure:
         required_files = [
             "__init__.py",
             "service.py",
-            "anomaly_models.py",
-            "ensemble_model.py",
-            "supervised_models.py",
+            "detector.py",
+            "rules.py",
+            "explainer.py",
+            "types.py",
+            "models/__init__.py",
+            "models/base.py",
+            "models/anomaly.py",
+            "models/supervised.py",
+            "models/ensemble.py",
         ]
         for file_name in required_files:
             file_path = ml_fraud_dir / file_name
@@ -87,45 +93,72 @@ class TestCodeQuality:
 
     def test_fraud_detection_models_structure(self) -> None:
         """Test fraud detection models structure"""
-        fraud_init = ml_fraud_dir / "__init__.py"
-        content = fraud_init.read_text()
-        # Anomaly models
-        assert "class IsolationForestModel" in content
-        assert "class OneClassSVMModel" in content
-        assert "class AutoencoderModel" in content
-        assert "def train" in content
-        assert "def predict" in content
-        # Supervised models
-        assert "class RandomForestFraudModel" in content
-        assert "class XGBoostFraudModel" in content
-        assert "class LightGBMFraudModel" in content
-        assert "class NeuralNetworkFraudModel" in content
+        from ml_services import fraud_detection as fd
+
+        for name in (
+            "IsolationForestModel",
+            "OneClassSVMModel",
+            "AutoencoderModel",
+            "RandomForestFraudModel",
+            "XGBoostFraudModel",
+            "LightGBMFraudModel",
+            "NeuralNetworkFraudModel",
+        ):
+            model_class = getattr(fd, name)
+            assert callable(getattr(model_class, "train"))
+            assert callable(getattr(model_class, "predict"))
 
     def test_ensemble_model_structure(self) -> None:
         """Test ensemble model structure"""
-        fraud_init = ml_fraud_dir / "__init__.py"
-        content = fraud_init.read_text()
-        assert "class EnsembleFraudModel" in content
-        assert "class RealTimeFraudDetector" in content
-        assert "def detect_fraud" in content
-        assert "def _weighted_voting" in content
-        assert "def _average_voting" in content
+        from ml_services import fraud_detection as fd
+
+        assert callable(fd.EnsembleFraudModel._weighted_voting)
+        assert callable(fd.EnsembleFraudModel._average_voting)
+        assert callable(fd.RealTimeFraudDetector.detect_fraud)
 
     def test_service_structure(self) -> None:
         """Test fraud detection service structure"""
-        service_file = ml_fraud_dir / "__init__.py"
-        content = service_file.read_text()
-        assert "class FraudDetectionService" in content
-        assert "async def train_model" in content
-        assert "async def detect_fraud" in content
-        assert "async def batch_detect_fraud" in content
+        import inspect
+
+        from ml_services.fraud_detection import FraudDetectionService
+
+        for name in (
+            "train_model",
+            "detect_fraud",
+            "batch_detect_fraud",
+            "update_model_feedback",
+        ):
+            assert inspect.iscoroutinefunction(getattr(FraudDetectionService, name))
 
     def test_fraud_detection_init(self) -> None:
         """Test fraud detection __init__ exports"""
-        fraud_init = ml_fraud_dir / "__init__.py"
-        content = fraud_init.read_text()
-        assert "FraudDetectionError" in content
-        assert "ModelNotTrainedError" in content
+        from ml_services import fraud_detection as fd
+
+        assert issubclass(fd.ModelNotTrainedError, fd.FraudDetectionError)
+        assert "FraudDetectionError" in fd.__all__
+        assert "ModelNotTrainedError" in fd.__all__
+
+    def test_ml_services_layout(self) -> None:
+        """Test ml_services top level package layout"""
+        ml_root = ml_fraud_dir.parent
+        for package in (
+            "config",
+            "core",
+            "data",
+            "features",
+            "fraud_detection",
+            "risk_assessment",
+            "transaction_intelligence",
+            "support_chatbot",
+            "training",
+            "evaluation",
+            "monitoring",
+            "serving",
+            "tests",
+        ):
+            assert (
+                ml_root / package / "__init__.py"
+            ).exists(), f"Missing package {package}"
 
     def test_input_validation(self) -> None:
         """Test input validation module"""
@@ -142,11 +175,13 @@ class TestCodeQuality:
 
     def test_fraud_detection_compliance(self) -> None:
         """Test fraud detection compliance features"""
-        service_file = ml_fraud_dir / "__init__.py"
-        content = service_file.read_text()
-        assert "update_model_feedback" in content
-        assert "performance_metrics" in content
-        assert "model_version" in content
+        from ml_services.fraud_detection import FraudDetectionService
+
+        service = FraudDetectionService({})
+        status = service.get_model_status()
+        assert "performance_metrics" in status
+        assert "model_version" in status
+        assert callable(service.record_feedback)
 
 
 class TestAPIEndpoints:
@@ -175,7 +210,10 @@ class TestAPIEndpoints:
             "/detect",
             "/detect/batch",
             "/model/train",
+            "/model/retrain",
             "/model/status",
+            "/model/drift",
+            "/model/retrain/check",
             "/alerts",
             "/statistics",
             "/feedback",
@@ -192,8 +230,9 @@ class TestAPIEndpoints:
         assert "from flask_cors import cross_origin" in content
         fraud_routes = src_dir / "routes" / "fraud_detection.py"
         content = fraud_routes.read_text()
-        assert "@cross_origin()" in content
-        assert "from flask_cors import cross_origin" in content
+        assert "@cross_origin()" not in content
+        assert "@token_required" in content
+        assert "@admin_required" in content
 
 
 if __name__ == "__main__":

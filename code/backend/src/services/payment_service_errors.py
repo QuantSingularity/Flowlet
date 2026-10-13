@@ -81,3 +81,9 @@ class DailyLimitExceeded(PaymentServiceError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, "DAILY_LIMIT_EXCEEDED", 400)
+
+
+class FraudBlocked(PaymentServiceError):
+
+    def __init__(self, message: str = "Transaction blocked by fraud screening") -> None:
+        super().__init__(message, "FRAUD_BLOCKED", 403)

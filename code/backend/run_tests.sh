@@ -41,7 +41,7 @@ run_test_suite() {
 
     # Check for pytest
     if ! command_exists pytest; then
-        echo -e "${RED}✗ Pytest not found. Skipping ${name} tests.${NC}"
+        echo -e "${RED}Pytest not found. Skipping ${name} tests.${NC}"
         return 1
     fi
 
@@ -61,10 +61,10 @@ run_test_suite() {
 
     # Execute pytest
     if eval "${PYTEST_CMD}"; then
-        echo -e "${GREEN}✓ ${name} tests passed${NC}"
+        echo -e "${GREEN}${name} tests passed${NC}"
         return 0
     else
-        echo -e "${RED}✗ ${name} tests failed${NC}"
+        echo -e "${RED}${name} tests failed${NC}"
         if [ "${exit_on_fail}" = "true" ]; then
             return 1 # Return 1 to trigger the main script's exit logic
         fi
@@ -122,9 +122,9 @@ if command_exists coverage; then
     coverage html -d "${TEST_RESULTS_DIR}/coverage/combined" > /dev/null
     coverage xml -o "${TEST_RESULTS_DIR}/coverage/combined_coverage.xml"
     coverage report --show-missing > "${TEST_RESULTS_DIR}/coverage/coverage_summary.txt"
-    echo -e "${GREEN}✓ Coverage reports generated.${NC}"
+    echo -e "${GREEN}Coverage reports generated.${NC}"
 else
-    echo -e "${YELLOW}⚠ Coverage tool not found. Skipping coverage reports.${NC}"
+    echo -e "${YELLOW}Coverage tool not found. Skipping coverage reports.${NC}"
 fi
 
 # 4. Security Scan (Bandit)
@@ -132,9 +132,9 @@ echo -e "${BLUE}Running security tests (Bandit)...${NC}"
 if command_exists bandit; then
     # The '|| true' ensures the script doesn't exit if bandit finds issues (which is expected)
     bandit -r src/ -f json -o "${TEST_RESULTS_DIR}/reports/security_report.json" || true
-    echo -e "${GREEN}✓ Security scan completed.${NC}"
+    echo -e "${GREEN}Security scan completed.${NC}"
 else
-    echo -e "${YELLOW}⚠ Bandit not installed. Skipping security scan.${NC}"
+    echo -e "${YELLOW}Bandit not installed. Skipping security scan.${NC}"
 fi
 
 # 5. Code Quality Checks (Flake8)
@@ -142,9 +142,9 @@ echo -e "${BLUE}Running code quality checks (Flake8)...${NC}"
 if command_exists flake8; then
     # The '|| true' ensures the script doesn't exit if flake8 finds issues (which is expected)
     flake8 src/ --output-file="${TEST_RESULTS_DIR}/reports/flake8_report.txt" --tee || true
-    echo -e "${GREEN}✓ Code quality check completed.${NC}"
+    echo -e "${GREEN}Code quality check completed.${NC}"
 else
-    echo -e "${YELLOW}⚠ Flake8 not installed. Skipping code quality check.${NC}"
+    echo -e "${YELLOW}Flake8 not installed. Skipping code quality check.${NC}"
 fi
 
 # --- Final Summary ---
@@ -155,15 +155,15 @@ echo -e "=========================================="
 
 # Display coverage summary
 if [ -f "${TEST_RESULTS_DIR}/coverage/coverage_summary.txt" ]; then
-    echo -e "${BLUE}📋 Coverage Summary:${NC}"
+    echo -e "${BLUE}Coverage Summary:${NC}"
     cat "${TEST_RESULTS_DIR}/coverage/coverage_summary.txt" | tail -n 5
 fi
 
 # Final Exit Status: Only exit 0 if all critical tests passed
 if [ "${UNIT_TEST_STATUS}" -eq 0 ] && [ "${INTEGRATION_TEST_STATUS}" -eq 0 ]; then
-    echo -e "${GREEN}🎉 All critical tests passed! Ready for deployment.${NC}"
+    echo -e "${GREEN}All critical tests passed! Ready for deployment.${NC}"
     exit 0
 else
-    echo -e "${RED}❌ Some critical tests failed. Please review and fix before deployment.${NC}"
+    echo -e "${RED}Some critical tests failed. Please review and fix before deployment.${NC}"
     exit 1
 fi

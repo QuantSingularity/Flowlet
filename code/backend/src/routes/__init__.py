@@ -44,7 +44,7 @@ api_bp.register_blueprint(banking_integrations_bp)
 api_bp.register_blueprint(api_gateway_bp)
 
 
-# Alias blueprint: /payment/* → delegates to payment_bp handlers
+# Alias blueprint: /payment/* -> delegates to payment_bp handlers
 from flask import Blueprint as _BP
 
 from .payment import send_p2p_payment as _send_p2p

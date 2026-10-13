@@ -65,27 +65,30 @@ The `ml_services/` directory contains the machine learning stack that powers rea
 
 ### Key Components
 
-| Directory          | Purpose                                                                                                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `ai_models/`       | Core AI model implementations including fraud detection, risk assessment, transaction intelligence, and support chatbot |
-| `fraud_detection/` | Production fraud detection pipeline with ensemble stacking, anomaly detection, and supervised models                    |
-| `tests/`           | ML-specific tests for model correctness, fairness, and performance benchmarks                                           |
+| Directory                   | Purpose                                                                                              |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `config/`                   | Environment driven settings                                                                          |
+| `core/`                     | Enums, exceptions, logging, signed and versioned model registry                                      |
+| `data/`, `features/`        | Transaction validation, synthetic data, feature engineering, history stores                          |
+| `fraud_detection/`          | Rule engine, anomaly and supervised models, stacked ensemble, detector, explainer, lifecycle service |
+| `risk_assessment/`          | Credit, fraud, liquidity, operational and compliance risk scoring                                    |
+| `transaction_intelligence/` | Categorization, recurring payment detection, spending analysis, forecasting                          |
+| `support_chatbot/`          | Intent routing, retrieval, answers grounded in account data, PII redaction                           |
+| `training/`, `evaluation/`  | Training pipeline and CLI, metrics, fairness report, walk-forward validation                         |
+| `monitoring/`, `serving/`   | Drift and latency monitoring, Prometheus exporter, service container used by the backend             |
+| `tests/`                    | Unit, integration and performance tests                                                              |
 
 ### Fraud Detection Ensemble
 
-The fraud detection system uses a stacked ensemble combining XGBoost, LightGBM, and Random Forest models. This architecture achieves strong performance on production transaction data.
+Scoring uses a stacked ensemble of Isolation Forest, One-Class SVM, an autoencoder, Random Forest, XGBoost, LightGBM and a neural network, combined with a deterministic rule engine. Quality metrics are computed on a holdout set at training time and exposed by `GET /api/v1/fraud/model/status`. Models trained on the built-in synthetic generator are labeled as such and are intended for development; train production models on real labeled data.
 
-| Metric                  | Value |
-| ----------------------- | ----- |
-| AUC-ROC                 | 0.987 |
-| Precision               | 97.3% |
-| Recall                  | 96.1% |
-| F1 Score                | 96.7% |
-| Inference latency (p50) | 8 ms  |
+### Backend Integration
+
+The backend calls `ml_services` through `backend/src/services/ml_gateway.py`. Payments are screened before funds move, fraud alerts are persisted, analysts resolve alerts and feed labels back to the model, and the `/api/v1/ai/*` endpoints expose risk assessment, categorization, spending analysis and the chatbot. See `ml_services/README.md` for configuration and the full endpoint list.
 
 ### Running ML Services
 
-ML services are typically invoked by the backend or run as standalone inference workers. Individual models can be tested or trained by running their respective module files directly. For operational deployment, the fraud detection service in `fraud_detection/service.py` provides the main entry point for real-time scoring requests.
+ML services are typically invoked by the backend or run as standalone inference workers. Models are trained with `python -m ml_services.training.cli`. `fraud_detection/service.py` provides the main entry point for real-time scoring requests.
 
 ## Technology Stack
 

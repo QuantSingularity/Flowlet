@@ -1,0 +1,26 @@
+[project]
+name = "flowlet-ml-services"
+version = "2.0.0"
+description = "Fraud detection, risk assessment, transaction intelligence and support chatbot services for Flowlet"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scipy>=1.11",
+    "scikit-learn>=1.5",
+    "joblib>=1.4",
+]
+
+[project.optional-dependencies]
+boosting = ["xgboost>=2.1", "lightgbm>=4.5"]
+redis = ["redis>=5.0"]
+metrics = ["prometheus-client>=0.19"]
+dev = ["pytest>=7.4"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.setuptools.packages.find]
+include = ["ml_services*"]
