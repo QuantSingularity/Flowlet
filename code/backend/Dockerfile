@@ -21,6 +21,7 @@ WORKDIR /app
 # Install runtime-only system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
+    libgomp1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
